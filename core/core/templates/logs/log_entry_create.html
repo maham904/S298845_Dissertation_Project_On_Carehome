@@ -1,0 +1,40 @@
+{% extends "core/base.html" %}
+{% load static %}
+
+{% block content %}
+
+{% if not log_entries %}
+<!-- STEP 1: SELECTION FORM -->
+<form method="POST" action="{% url 'create-log' %}">
+    {% csrf_token %}
+    <div class="form-group">
+        <label>Select Carehome</label>
+        <select name="carehome" required class="form-control">
+            {% for c in carehomes %}
+                <option value="{{ c.id }}">{{ c.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label>Select Service User</label>
+        <select name="service_user" required class="form-control">
+            {% for su in service_users %}
+                <option value="{{ su.id }}">{{ su.first_name }} {{ su.last_name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label>Select Shift</label>
+        <select name="shift" required class="form-control">
+            {% for shift in shifts %}
+                <option value="{{ shift }}">{{ shift }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Start Log</button>
+</form>
+{% endif %}
+{% endblock %}

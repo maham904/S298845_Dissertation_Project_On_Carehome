@@ -1,0 +1,23 @@
+{% extends "core/base.html" %}
+{% block content %}
+<h2>Submitted ABC Forms</h2>
+<table>
+    <tr>
+        <th>ID</th>
+        <th>Service User</th>
+        <th>Created</th>
+        <th>Actions</th>
+    </tr>
+    {% for form in forms %}
+    <tr>
+        <td>{{ form.id }}</td>
+        <td>{{ form.service_user }}</td>
+        <td>{{ form.created_at }}</td>
+        <td>
+            <a href="{% url 'edit_abc_form' form.id %}">Edit</a> |
+            <a href="{% url 'download_abc_pdf' form.id %}">Download PDF</a>
+        </td>
+    </tr>
+    {% endfor %}
+</table>
+{% endblock %}

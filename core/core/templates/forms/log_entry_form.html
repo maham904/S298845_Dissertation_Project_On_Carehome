@@ -1,0 +1,130 @@
+{% extends "core/base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="d-sm-flex align-items-center justify-content-between mb-4">
+    <h1 class="h4 mb-0 text-gray-800">Log Form ({{ shift }})</h1>
+</div>
+
+<div class="row align-items-center mb-4">
+    <div class="col-md-1 text-center">
+        {% if request.user.image %}
+            <img src="{{ request.user.image.url }}" class="rounded-circle" height="70" alt="Staff">
+        {% else %}
+            <img src="{% static 'img/undraw_profile.svg' %}" class="rounded-circle" height="70" alt="Staff">
+        {% endif %}
+    </div>
+    <div class="col-md-5">
+        <div><strong>Date:</strong> {{ today }}</div>
+        <div><strong>Staff:</strong> {{ request.user.get_full_name }}</div>
+        <div><strong>Shift:</strong> {{ shift }}</div>
+        <div><strong>Carehome:</strong> {{ carehome.name }}</div>
+    </div>
+
+    <div class="col-md-1 text-center">
+        {% if service_user.image %}
+            <img src="{{ service_user.image.url }}" class="rounded-circle" height="70" alt="Service User">
+        {% else %}
+            <img src="{% static 'img/default-user.png' %}" class="rounded-circle" height="70" alt="Service User">
+        {% endif %}
+    </div>
+    <div class="col-md-5">
+        <div><strong>Service User:</strong> {{ service_user.first_name }} {{ service_user.last_name }}</div>
+    </div>
+</div>
+
+<hr>
+
+{% if log_entries %}
+    {% for entry in log_entries %}
+        <div id="entry-{{ forloop.counter }}" class="mb-4">
+            <div><strong>{{ entry.time_slot|time:"H:i" }}</strong></div>
+            <form method="post" class="log-form" data-entry-id="{{ entry.id }}">
+                {% csrf_token %}
+                <textarea name="content" class="form-control log-text" rows="2" {% if not forloop.first %}disabled{% endif %}>{{ entry.content }}</textarea>
+                <div class="mt-2">
+                    <button type="submit" class="btn btn-success save-btn">Save</button>
+                    <button type="button" class="btn btn-secondary edit-btn d-none">Edit</button>
+                </div>
+            </form>
+            <hr>
+        </div>
+    {% endfor %}
+{% else %}
+    <div class="alert alert-warning">No log entries found.</div>
+{% endif %}
+
+<form method="post" action="{% url 'lock-log' latest_log.id %}">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-primary"
+            onclick="return confirm('Once locked, entries cannot be edited. Proceed?')">
+        Submit & Lock
+    </button>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const forms = document.querySelectorAll(".log-form");
+
+    forms.forEach((form, index) => {
+        const textarea = form.querySelector(".log-text");
+        const saveBtn = form.querySelector(".save-btn");
+        const editBtn = form.querySelector(".edit-btn");
+
+        // Enable Save button only if input is not empty
+        textarea.addEventListener("input", () => {
+            saveBtn.disabled = textarea.value.trim().length === 0;
+        });
+
+        // Handle form submission
+        form.addEventListener("submit", function (e) {
+            e.preventDefault();
+
+            const formData = new FormData(form);
+            const entryId = form.getAttribute("data-entry-id");
+            const csrfToken = formData.get("csrfmiddlewaretoken");
+
+            fetch(`/save-log/${entryId}/`, {
+                method: "POST",
+                headers: {
+                    "X-CSRFToken": csrfToken,
+                },
+                body: formData,
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    textarea.disabled = true;
+                    saveBtn.classList.add("d-none");
+                    editBtn.classList.remove("d-none");
+
+                    const nextEntry = document.getElementById(`entry-${index + 2}`);
+                    if (nextEntry) {
+                        const nextText = nextEntry.querySelector(".log-text");
+                        const nextSave = nextEntry.querySelector(".save-btn");
+
+                        nextText.disabled = false;
+                        nextSave.disabled = true;
+                    }
+                } else {
+                    alert("Failed to save log. Try again.");
+                }
+            });
+        });
+
+        // Enable edit mode
+        editBtn.addEventListener("click", function () {
+            textarea.disabled = false;
+            saveBtn.classList.remove("d-none");
+            editBtn.classList.add("d-none");
+            textarea.focus();
+        });
+
+        // Initial Save button state
+        saveBtn.disabled = textarea.value.trim().length === 0;
+    });
+});
+</script>
+{% endblock %}

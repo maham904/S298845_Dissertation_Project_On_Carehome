@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 11px;
+            padding: 20px 40px;
+        }
+        h2 {
+            text-align: center;
+            margin: 0;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        td, th {
+            border: 1px solid #000;
+            padding: 8px;
+            vertical-align: top;
+        }
+        .label {
+            font-weight: bold;
+            width: 30%;
+        }
+        .textarea-cell {
+            min-height: 100px;
+        }
+        .contact-table {
+            width: 100%;
+            margin-top: 20px;
+        }
+        .contact-table th, .contact-table td {
+            border: 1px solid #000;
+            padding: 5px;
+            text-align: center;
+        }
+        .checkbox {
+            width: 15%;
+            text-align: center;
+        }
+        .page-break {
+            page-break-after: always;
+        }
+    </style>
+</head>
+<body>
+
+<h2>PRESTIGE SUPPORTED LIVING SERVICES LTD</h2>
+<h2>Incident Report Form</h2>
+
+<table>
+    <tr>
+        <td class="label">Date and Time of incident:</td>
+        <td>{{ data.incident_datetime }}</td>
+        <td class="label">Location:</td>
+        <td>{{ data.location }}</td>
+    </tr>
+    <tr>
+        <td class="label">Service user/s involved:</td>
+        <td>{{ data.service_user }}</td>
+        <td class="label">D.O.B</td>
+        <td>{{ data.dob }}</td>
+    </tr>
+    <tr>
+        <td class="label">Staff Involved in the incident:</td>
+        <td colspan="3">{{ data.staff_involved }}</td>
+    </tr>
+    <tr>
+        <td class="label">Write in detail what the Service User was doing prior to the incident:</td>
+        <td colspan="3" class="textarea-cell">{{ data.prior_description }}</td>
+    </tr>
+    <tr>
+        <td class="label">Write in detail the description of the incident (including the behaviour of the Service user):</td>
+        <td colspan="3" class="textarea-cell">{{ data.incident_description }}</td>
+    </tr>
+    <tr>
+        <td class="label">Write in details the response of the Service User:</td>
+        <td colspan="3" class="textarea-cell">{{ data.user_response }}</td>
+    </tr>
+</table>
+
+<!-- Page Break for second page content -->
+<div class="page-break"></div>
+
+<h2>PRESTIGE SUPPORTED LIVING SERVICES LTD</h2>
+<h2>Incident Report Form (continued)</h2>
+
+<table>
+    <tr>
+        <td class="label">Detail of any injuries:</td>
+        <td colspan="3" class="textarea-cell">{{ data.injuries_detail }}</td>
+    </tr>
+    <tr>
+        <td class="label">Body Chart filled in:</td>
+        <td colspan="3">N/A</td>
+    </tr>
+    <tr>
+        <td class="label">Details of any damage to property:</td>
+        <td colspan="3">N/A</td>
+    </tr>
+    <tr>
+        <td class="label">PRN Medication Administered according to Protocol</td>
+        <td>{% if data.prn_administered %}✓{% else %}□{% endif %}</td>
+        <td class="label">By whom:</td>
+        <td>{{ data.prn_by_whom }}</td>
+    </tr>
+</table>
+
+<table class="contact-table">
+    <tr>
+        <th rowspan="2">Person</th>
+        <th colspan="2">Contacted</th>
+        <th rowspan="2">Date</th>
+        <th rowspan="2">Time</th>
+        <th rowspan="2">Comment – enter person spoken and advice given</th>
+    </tr>
+    <tr>
+        <th>Yes</th>
+        <th>No</th>
+    </tr>
+    <tr>
+        <td>Manager</td>
+        <td class="checkbox">{% if data.contacted_manager %}✓{% endif %}</td>
+        <td class="checkbox">{% if not data.contacted_manager %}✓{% endif %}</td>
+        <td></td>
+        <td></td>
+        <td></td>
+    </tr>
+    <tr>
+        <td>Police</td>
+        <td class="checkbox">{% if data.contacted_police %}✓{% endif %}</td>
+        <td class="checkbox">{% if not data.contacted_police %}✓{% endif %}</td>
+        <td></td>
+        <td></td>
+        <td></td>
+    </tr>
+    <tr>
+        <td>Paramedics</td>
+        <td class="checkbox">{% if data.contacted_paramedics %}✓{% endif %}</td>
+        <td class="checkbox">{% if not data.contacted_paramedics %}✓{% endif %}</td>
+        <td></td>
+        <td></td>
+        <td></td>
+    </tr>
+</table>
+
+</body>
+</html>

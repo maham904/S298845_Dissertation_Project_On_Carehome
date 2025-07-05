@@ -1,0 +1,55 @@
+{% extends "core/base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="d-sm-flex align-items-center justify-content-between mb-4">
+    <h1 class="h4 mb-0 text-gray-800">Missed Log Entries</h1>
+</div>
+
+{% if missed_logs %}
+    {% regroup missed_logs by service_user as grouped_logs %}
+
+    {% for group in grouped_logs %}
+        <div class="card shadow mb-4">
+            <div class="card-header py-3 d-flex align-items-center justify-content-between">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    Service User: {{ group.grouper.first_name }} {{ group.grouper.last_name }}
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered mb-0" width="100%">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Carehome</th>
+                                <th>Date</th>
+                                <th>Shift</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for log in group.list|slice:":2" %}
+                                <tr>
+                                    <td>{{ forloop.counter }}</td>
+                                    <td>{{ log.carehome.name }}</td>
+                                    <td>{{ log.date }}</td>
+                                    <td>{{ log.shift }}</td>
+                                    <td>
+                                        <span class="badge badge-danger">Missed</span>
+                                    </td>
+                                </tr>
+                            {% empty %}
+                                <tr><td colspan="5" class="text-center">No logs found.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    {% endfor %}
+
+{% else %}
+    <div class="alert alert-info">No missed log entries found.</div>
+{% endif %}
+{% endblock %}
