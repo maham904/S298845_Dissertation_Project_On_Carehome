@@ -1064,16 +1064,48 @@ def fill_incident_form(request):
 def incident_report_list_view(request):
     user = request.user
 
+    # Base queryset based on user role
     if user.is_superuser or user.role == 'manager':
-        incidents = IncidentReport.objects.select_related('service_user').order_by('-incident_datetime')
+        incidents = IncidentReport.objects.select_related('service_user')
     elif user.role == 'team_lead':
-        incidents = IncidentReport.objects.filter(service_user__carehome=user.carehome).order_by('-incident_datetime')
+        incidents = IncidentReport.objects.filter(service_user__carehome=user.carehome)
     elif user.role == 'staff':
-        incidents = IncidentReport.objects.filter(staff=user).order_by('-incident_datetime')
+        incidents = IncidentReport.objects.filter(staff=user)
     else:
         incidents = IncidentReport.objects.none()
 
-    # Add image preview flag to each incident
+    # Get filter parameters from request
+    service_user_id = request.GET.get('service_user')
+    date_from = request.GET.get('date_from')
+    date_to = request.GET.get('date_to')
+
+    # Apply filters
+    if service_user_id:
+        incidents = incidents.filter(service_user_id=service_user_id)
+
+    if date_from:
+        try:
+            date_from = datetime.strptime(date_from, '%Y-%m-%d').date()
+            incidents = incidents.filter(incident_datetime__date__gte=date_from)
+        except ValueError:
+            pass
+
+    if date_to:
+        try:
+            date_to = datetime.strptime(date_to, '%Y-%m-%d').date()
+            incidents = incidents.filter(incident_datetime__date__lte=date_to)
+        except ValueError:
+            pass
+
+    # Ordering and additional processing
+    incidents = incidents.order_by('-incident_datetime')
+
+    # Get service users based on filtered incidents
+    service_users = ServiceUser.objects.filter(
+        id__in=incidents.values_list('service_user', flat=True).distinct()
+    ).order_by('first_name')
+
+    # Add image preview flag
     for incident in incidents:
         incident.has_images = any([
             incident.image1,
@@ -1081,7 +1113,11 @@ def incident_report_list_view(request):
             incident.image3
         ])
 
-    return render(request, 'forms/incident_report_list.html', {'incidents': incidents})
+    return render(request, 'forms/incident_report_list.html', {
+        'incidents': incidents,
+        'service_users': service_users,
+        'search_params': request.GET
+    })
 
 
 @login_required

@@ -105,15 +105,16 @@
         <td colspan="3">{{ data.staff_involved }}</td>
     </tr>
     <tr>
-        <td class="label">Prior to incident:</td>
+        <td class="label">Write in detail what the Service User was doing prior to the incident: </td>
         <td colspan="3" class="content-cell">{{ data.prior_description }}</td>
     </tr>
     <tr>
-        <td class="label">Incident description:</td>
+        <td class="label">Write in detail the description of the incident (including the behaviour of the Service
+user):</td>
         <td colspan="3" class="content-cell">{{ data.incident_description }}</td>
     </tr>
     <tr>
-        <td class="label">Service User response:</td>
+        <td class="label">Write in details the response of the Service User:</td>
         <td colspan="3" class="content-cell">{{ data.user_response }}</td>
     </tr>
 </table>
@@ -121,7 +122,6 @@
 <div class="page-break"></div>
 
 <h2>PRESTIGE SUPPORTED LIVING SERVICES LTD</h2>
-<h2>Incident Report Form (continued)</h2>
 
 <table>
     <tr>
@@ -138,9 +138,6 @@
         <td class="label">By whom:</td>
         <td>{{ data.prn_by_whom|default:"N/A" }}</td>
     </tr>
-</table>
-
-<table class="contact-table">
     <tr>
         <th>Person</th>
         <th class="checkbox">Contacted</th>
