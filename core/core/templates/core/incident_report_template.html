@@ -1,169 +1,280 @@
 {% extends "core/base.html" %}
-
 {% block content %}
-<div class="container-fluid">
-    <!-- Page Heading -->
-<!--    <div class="d-sm-flex align-items-center justify-content-between mb-4">-->
-<!--        <h1 class="h3 mb-0 text-gray-800">Incident Report</h1>-->
-<!--        <a href="#" onclick="window.print()" class="d-none d-sm-inline-block btn btn-sm btn-primary shadow-sm">-->
-<!--            <i class="fas fa-download fa-sm text-white-50"></i> Print Report-->
-<!--        </a>-->
-<!--    </div>-->
-
-    <!-- Report Content -->
-    <div class="incident-report protected-content" style="font-family: Arial, sans-serif; font-size: 11px; padding: 20px 40px;">
-        <h2 style="text-align: center; margin: 0; font-size: 14px; margin-bottom: 5px;">PRESTIGE SUPPORTED LIVING SERVICES LTD</h2>
-        <h2 style="text-align: center; margin: 0; font-size: 14px; margin-bottom: 5px;">Incident Report Form</h2>
-
-        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
-            <tr>
-                <td style="font-weight: bold; width: 30%; border: 1px solid #000; padding: 8px; vertical-align: top;">Date and Time of incident:</td>
-                <td style="border: 1px solid #000; padding: 8px; vertical-align: top;">{{ data.incident_datetime }}</td>
-                <td style="font-weight: bold; width: 30%; border: 1px solid #000; padding: 8px; vertical-align: top;">Location:</td>
-                <td style="border: 1px solid #000; padding: 8px; vertical-align: top;">{{ data.location }}</td>
-            </tr>
-            <tr>
-                <td style="font-weight: bold; width: 30%; border: 1px solid #000; padding: 8px; vertical-align: top;">Service user/s involved:</td>
-                <td style="border: 1px solid #000; padding: 8px; vertical-align: top;">{{ data.service_user }}</td>
-                <td style="font-weight: bold; width: 30%; border: 1px solid #000; padding: 8px; vertical-align: top;">D.O.B</td>
-                <td style="border: 1px solid #000; padding: 8px; vertical-align: top;">{{ data.dob }}</td>
-            </tr>
-            <tr>
-                <td style="font-weight: bold; width: 30%; border: 1px solid #000; padding: 8px; vertical-align: top;">Staff Involved in the incident:</td>
-                <td colspan="3" style="border: 1px solid #000; padding: 8px; vertical-align: top;">{{ data.staff_involved }}</td>
-            </tr>
-            <tr>
-                <td style="font-weight: bold; width: 30%; border: 1px solid #000; padding: 8px; vertical-align: top;">Write in detail what the Service User was doing prior to the incident:</td>
-                <td colspan="3" style="border: 1px solid #000; padding: 8px; vertical-align: top; min-height: 100px;">{{ data.prior_description }}</td>
-            </tr>
-            <tr>
-                <td style="font-weight: bold; width: 30%; border: 1px solid #000; padding: 8px; vertical-align: top;">Write in detail the description of the incident (including the behaviour of the Service user):</td>
-                <td colspan="3" style="border: 1px solid #000; padding: 8px; vertical-align: top; min-height: 100px;">{{ data.incident_description }}</td>
-            </tr>
-            <tr>
-                <td style="font-weight: bold; width: 30%; border: 1px solid #000; padding: 8px; vertical-align: top;">Write in details the response of the Service User:</td>
-                <td colspan="3" style="border: 1px solid #000; padding: 8px; vertical-align: top; min-height: 100px;">{{ data.user_response }}</td>
-            </tr>
-        </table>
-
-        <!-- Page Break for second page content -->
-        <div style="page-break-after: always;"></div>
-
-        <h2 style="text-align: center; margin: 0; font-size: 14px; margin-bottom: 5px;">PRESTIGE SUPPORTED LIVING SERVICES LTD</h2>
-        <h2 style="text-align: center; margin: 0; font-size: 14px; margin-bottom: 5px;">Incident Report Form (continued)</h2>
-
-        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
-            <tr>
-                <td style="font-weight: bold; width: 30%; border: 1px solid #000; padding: 8px; vertical-align: top;">Detail of any injuries:</td>
-                <td colspan="3" style="border: 1px solid #000; padding: 8px; vertical-align: top; min-height: 100px;">{{ data.injuries_detail }}</td>
-            </tr>
-            <tr>
-                <td style="font-weight: bold; width: 30%; border: 1px solid #000; padding: 8px; vertical-align: top;">Body Chart filled in:</td>
-                <td colspan="3" style="border: 1px solid #000; padding: 8px; vertical-align: top;">N/A</td>
-            </tr>
-            <tr>
-                <td style="font-weight: bold; width: 30%; border: 1px solid #000; padding: 8px; vertical-align: top;">Details of any damage to property:</td>
-                <td colspan="3" style="border: 1px solid #000; padding: 8px; vertical-align: top;">N/A</td>
-            </tr>
-            <tr>
-                <td style="font-weight: bold; width: 30%; border: 1px solid #000; padding: 8px; vertical-align: top;">PRN Medication Administered according to Protocol</td>
-                <td style="border: 1px solid #000; padding: 8px; vertical-align: top;">{% if data.prn_administered %}✓{% else %}□{% endif %}</td>
-                <td style="font-weight: bold; width: 30%; border: 1px solid #000; padding: 8px; vertical-align: top;">By whom:</td>
-                <td style="border: 1px solid #000; padding: 8px; vertical-align: top;">{{ data.prn_by_whom }}</td>
-            </tr>
-        </table>
-
-        <table style="width: 100%; margin-top: 20px; border-collapse: collapse;">
-            <tr>
-                <th rowspan="2" style="border: 1px solid #000; padding: 5px; text-align: center;">Person</th>
-                <th colspan="2" style="border: 1px solid #000; padding: 5px; text-align: center;">Contacted</th>
-                <th rowspan="2" style="border: 1px solid #000; padding: 5px; text-align: center;">Date</th>
-                <th rowspan="2" style="border: 1px solid #000; padding: 5px; text-align: center;">Time</th>
-                <th rowspan="2" style="border: 1px solid #000; padding: 5px; text-align: center;">Comment – enter person spoken and advice given</th>
-            </tr>
-            <tr>
-                <th style="border: 1px solid #000; padding: 5px; text-align: center;">Yes</th>
-                <th style="border: 1px solid #000; padding: 5px; text-align: center;">No</th>
-            </tr>
-            <tr>
-                <td style="border: 1px solid #000; padding: 5px; text-align: center;">Manager</td>
-                <td style="width: 15%; text-align: center; border: 1px solid #000; padding: 5px;">{% if data.contacted_manager %}✓{% endif %}</td>
-                <td style="width: 15%; text-align: center; border: 1px solid #000; padding: 5px;">{% if not data.contacted_manager %}✓{% endif %}</td>
-                <td style="border: 1px solid #000; padding: 5px;"></td>
-                <td style="border: 1px solid #000; padding: 5px;"></td>
-                <td style="border: 1px solid #000; padding: 5px;"></td>
-            </tr>
-            <tr>
-                <td style="border: 1px solid #000; padding: 5px; text-align: center;">Police</td>
-                <td style="width: 15%; text-align: center; border: 1px solid #000; padding: 5px;">{% if data.contacted_police %}✓{% endif %}</td>
-                <td style="width: 15%; text-align: center; border: 1px solid #000; padding: 5px;">{% if not data.contacted_police %}✓{% endif %}</td>
-                <td style="border: 1px solid #000; padding: 5px;"></td>
-                <td style="border: 1px solid #000; padding: 5px;"></td>
-                <td style="border: 1px solid #000; padding: 5px;"></td>
-            </tr>
-            <tr>
-                <td style="border: 1px solid #000; padding: 5px; text-align: center;">Paramedics</td>
-                <td style="width: 15%; text-align: center; border: 1px solid #000; padding: 5px;">{% if data.contacted_paramedics %}✓{% endif %}</td>
-                <td style="width: 15%; text-align: center; border: 1px solid #000; padding: 5px;">{% if not data.contacted_paramedics %}✓{% endif %}</td>
-                <td style="border: 1px solid #000; padding: 5px;"></td>
-                <td style="border: 1px solid #000; padding: 5px;"></td>
-                <td style="border: 1px solid #000; padding: 5px;"></td>
-            </tr>
-        </table>
-    </div>
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Incident Report #{{ data.id }}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 11px;
+            line-height: 1.4;
+            margin: 0; /* Remove default body margin */
+            padding: 0; /* Remove default body padding */
+        }
+        .print-content {
+            padding: 20px 40px; /* Content padding only */
+            margin: 0 auto; /* Center content */
+            max-width: 900px;
+        }
+        h2 {
+            text-align: center;
+            margin: 0;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            table-layout: fixed;
+        }
+        td, th {
+            border: 1px solid #000;
+            padding: 8px;
+            vertical-align: top;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+        .label {
+            font-weight: bold;
+            width: 25%;
+        }
+        .content-cell {
+            width: 75%;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .contact-table {
+            width: 100%;
+            margin-top: 20px;
+        }
+        .contact-table th, .contact-table td {
+            border: 1px solid #000;
+            padding: 5px;
+            word-wrap: break-word;
+        }
+        .checkbox {
+            width: 5%;
+            text-align: center;
+        }
+        .datetime-cell {
+            width: 15%;
+        }
+        .comment-cell {
+            width: 30%;
+            white-space: pre-wrap;
+        }
+        .page-break {
+            page-break-after: always;
+        }
+        /* Print-specific styles */
+        @media print {
+            body {
+                padding: 0 !important;
+                background: white !important;
+            }
+            .no-print {
+                display: none !important;
+            }
+            .print-content {
+                padding: 20px 40px !important;
+            }
+        }
+        /* Screen-specific styles */
+        @media screen {
+            body {
+                background-color: #f5f5f5;
+                padding-top: 20px;
+            }
+            .print-content {
+                background-color: white;
+                box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            }
+            .print-actions {
+                text-align: center;
+                margin: 0 auto 20px;
+                max-width: 900px;
+            }
+        }
+        /* Copy protection styles */
+        .protected-content {
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            position: relative;
+        }
+        .protected-content::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" opacity="0.05"><text x="50" y="50" font-family="Arial" font-size="20" transform="rotate(-30)">CONFIDENTIAL</text></svg>');
+            pointer-events: none;
+            z-index: 1;
+        }
+    </style>
+</head>
+<body>
+<div class="print-actions no-print">
+    <a href="{% url 'download_incident_pdf' form_id=data.id %}" class="btn btn-primary">
+        <i class="fas fa-file-pdf"></i> Download PDF
+    </a>
+    <button onclick="window.print()" class="btn btn-secondary">
+        <i class="fas fa-print"></i> Print Report
+    </button>
+    {% if can_edit %}
+    <a href="{% url 'edit_incident_form' pk=data.id %}" class="btn btn-warning">
+        <i class="fas fa-edit"></i> Edit Report
+    </a>
+    {% endif %}
 </div>
 
-<style>
-    /* Prevent text selection*/
-    .protected-content {
-        -webkit-user-select: none; /* Safari */
-        -moz-user-select: none; /* Firefox */
-        -ms-user-select: none; /* IE10+/Edge */
-        user-select: none; /* Standard */
-    }
+<div class="print-content protected-content">
+    <h2>PRESTIGE SUPPORTED LIVING SERVICES LTD</h2>
+    <h2>Incident Report Form</h2>
 
-    @media print {
-        body * {
-            visibility: hidden;
+    <table>
+        <tr>
+            <td class="label">Date and Time of incident:</td>
+            <td>{{ data.incident_datetime }}</td>
+            <td class="label">Location:</td>
+            <td>{{ data.location }}</td>
+        </tr>
+        <tr>
+            <td class="label">Service user/s involved:</td>
+            <td>{{ data.service_user }}</td>
+            <td class="label">D.O.B</td>
+            <td>{{ data.dob }}</td>
+        </tr>
+        <tr>
+            <td class="label">Staff Involved in the incident:</td>
+            <td colspan="3">{{ data.staff_involved }}</td>
+        </tr>
+        <tr>
+            <td class="label">Prior to incident:</td>
+            <td colspan="3" class="content-cell">{{ data.prior_description|default:"N/A" }}</td>
+        </tr>
+        <tr>
+            <td class="label">Incident description:</td>
+            <td colspan="3" class="content-cell">{{ data.incident_description|default:"N/A" }}</td>
+        </tr>
+        <tr>
+            <td class="label">Service User response:</td>
+            <td colspan="3" class="content-cell">{{ data.user_response|default:"N/A" }}</td>
+        </tr>
+        <tr>
+            <td class="label">Injuries:</td>
+            <td colspan="3" class="content-cell">{{ data.injuries_detail|default:"N/A" }}</td>
+        </tr>
+        <tr>
+            <td class="label">Property damage:</td>
+            <td colspan="3" class="content-cell">{{ data.property_damage|default:"N/A" }}</td>
+        </tr>
+        <tr>
+            <td class="label">PRN Medication:</td>
+            <td>{% if data.prn_administered %}✓{% else %}□{% endif %}</td>
+            <td class="label">By whom:</td>
+            <td>{{ data.prn_by_whom|default:"N/A" }}</td>
+        </tr>
+        <tr>
+            <th>Person</th>
+            <th class="checkbox">Contacted</th>
+            <th class="datetime-cell">Date/Time</th>
+            <th class="comment-cell">Comments</th>
+        </tr>
+        <tr>
+            <td>Manager</td>
+            <td class="checkbox">{% if data.contacted_manager %}✓{% else %}□{% endif %}</td>
+            <td>{% if data.contacted_manager %}{{ data.manager_contact_date|default:"N/A" }}{% endif %}</td>
+            <td>{% if data.contacted_manager %}{{ data.manager_contact_comment|default:"N/A" }}{% endif %}</td>
+        </tr>
+        <tr>
+            <td>Police</td>
+            <td class="checkbox">{% if data.contacted_police %}✓{% else %}□{% endif %}</td>
+            <td>{% if data.contacted_police %}{{ data.police_contact_date|default:"N/A" }}{% endif %}</td>
+            <td>{% if data.contacted_police %}{{ data.police_contact_comment|default:"N/A" }}{% endif %}</td>
+        </tr>
+        <tr>
+            <td>Paramedics</td>
+            <td class="checkbox">{% if data.contacted_paramedics %}✓{% else %}□{% endif %}</td>
+            <td>{% if data.contacted_paramedics %}{{ data.paramedics_contact_date|default:"N/A" }}{% endif %}</td>
+            <td>{% if data.contacted_paramedics %}{{ data.paramedics_contact_comment|default:"N/A" }}{% endif %}</td>
+        </tr>
+        <tr>
+            <td>Other: {% if data.contacted_other %}{{ data.other_contact_name|default:"N/A" }}{% endif %}</td>
+            <td class="checkbox">{% if data.contacted_other %}✓{% else %}□{% endif %}</td>
+            <td>{% if data.contacted_other %}{{ data.other_contact_date|default:"N/A" }}{% endif %}</td>
+            <td>{% if data.contacted_other %}{{ data.other_contact_comment|default:"N/A" }}{% endif %}</td>
+        </tr>
+    </table>
+    <!-- Add this to your template -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <h5 class="section-title"><i class="fas fa-images"></i> Attached Images</h5>
+            <hr>
+            <div class="row">
+                {% for image in data.get_images %}
+                <div class="col-md-4 mb-3">
+                    <div class="image-container">
+                        <img src="{{ image.url }}" alt="Incident Image {{ forloop.counter }}"
+                             class="img-fluid img-thumbnail incident-image">
+                        <div class="image-caption">Image {{ forloop.counter }}</div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="col-12">
+                    <p>No images attached to this report.</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .incident-image {
+            max-width: 100%;
+            height: 200px;
+            object-fit: contain;
+            border: 1px solid #ddd;
+            margin-bottom: 5px;
         }
-        .incident-report, .incident-report * {
-            visibility: visible;
+        .image-container {
+            text-align: center;
         }
-        .incident-report {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
+        .image-caption {
+            font-size: 0.8rem;
+            color: #666;
         }
-        .no-print {
-            display: none !important;
-        }
-        /* Allow text selection for printing */
-        .protected-content {
-            -webkit-user-select: text !important;
-            -moz-user-select: text !important;
-            -ms-user-select: text !important;
-            user-select: text !important;
-        }
-    }
-</style>
+    </style>
+</div>
 
 <script>
-    // Prevent right-click context menu
-    document.addEventListener('contextmenu', function(e) {
-        e.preventDefault();
-    });
+    document.addEventListener('DOMContentLoaded', function() {
+        // Copy protection
+        document.addEventListener('contextmenu', function(e) {
+            e.preventDefault();
+            alert('Copying content is not permitted');
+        });
 
-    // Prevent keyboard shortcuts (Ctrl+C, Ctrl+A, etc.)
-    document.addEventListener('keydown', function(e) {
-        // Disable Ctrl+A, Ctrl+C, Ctrl+X, Ctrl+V
-        if (e.ctrlKey && (e.keyCode === 65 || e.keyCode === 67 || e.keyCode === 86 || e.keyCode === 88 || e.keyCode === 85)) {
+        document.addEventListener('selectstart', function(e) {
             e.preventDefault();
-        }
-        // Disable F12 (Developer Tools)
-        if (e.keyCode === 123) {
-            e.preventDefault();
-        }
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey && (e.key === 'c' || e.key === 'C' ||
+                              e.key === 'x' || e.key === 'X' ||
+                              e.key === 'a' || e.key === 'A')) {
+                e.preventDefault();
+                alert('Copying content is not permitted');
+            }
+        });
     });
 </script>
+</body>
+</html>
 {% endblock %}

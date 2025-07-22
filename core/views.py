@@ -10,6 +10,8 @@ from django.contrib.auth import authenticate, login, logout, get_user_model
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.core.files.base import ContentFile
 from django.db import transaction
+from django.db.models import Q
+from django.forms import model_to_dict
 from django.http import HttpResponseForbidden
 from django.views.decorators.csrf import csrf_exempt
 import requests
@@ -28,7 +30,7 @@ from xhtml2pdf import pisa
 from .models import ABCForm, IncidentReport
 from .forms import ABCFormForm, IncidentReportForm
 from django.contrib import messages
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from django.utils import timezone
 from django.shortcuts import render, redirect, get_object_or_404
 from .models import CareHome, ServiceUser, LogEntry
@@ -104,101 +106,30 @@ logger = logging.getLogger(__name__)
 
 
 @login_required
-def fill_abc_form(request):
-    if request.method == 'POST':
-        form = ABCFormForm(request.POST)
-        if form.is_valid():
-            try:
-                instance = form.save(commit=False)
-                instance.created_by = request.user
-
-                # Combine individual fields
-                instance.setting = "\n".join([
-                    f"Location: {request.POST.get('setting_location', '')}",
-                    f"Present: {request.POST.get('setting_present', '')}",
-                    f"Activity: {request.POST.get('setting_activity', '')}",
-                    f"Environment: {request.POST.get('setting_environment', '')}"
-                ])
-
-                instance.antecedent = "\n".join([
-                    f"Description: {request.POST.get('antecedent_description', '')}",
-                    f"Routine change: {request.POST.get('antecedent_change', '')}",
-                    f"Unexpected noise: {request.POST.get('antecedent_noise', '')}",
-                    f"Waiting for: {request.POST.get('antecedent_waiting', '')}"
-                ])
-
-                instance.behaviour = "\n".join([
-                    f"Description: {request.POST.get('behaviour_description', '')}",
-                    f"Duration: {request.POST.get('behaviour_duration', '')}",
-                    f"Intensity: {request.POST.get('behaviour_intensity', '')}"
-                ])
-
-                instance.consequences = "\n".join([
-                    f"Immediate: {request.POST.get('consequence_immediate', '')}",
-                    f"Staff response: {request.POST.get('consequence_staff', '')}",
-                    f"Others reacted: {request.POST.get('consequence_others', '')}"
-                ])
-
-                instance.reflection = "\n".join([
-                    f"Learnings: {request.POST.get('reflection_learnings', '')}",
-                    f"Strategies: {request.POST.get('reflection_strategies', '')}",
-                    f"Notes: {request.POST.get('reflection_notes', '')}"
-                ])
-
-                instance.save()
-                form.save_m2m()
-
-                # PDF Generation - Using BytesIO (recommended approach)
-                context = {
-                    'data': {
-                        'target_behaviours': form.cleaned_data['target_behaviours'],
-                        'service_user': instance.service_user,
-                        'date_of_birth': instance.date_of_birth,
-                        'staff': instance.staff,
-                        'date_time': instance.date_time,
-                        'setting': instance.setting,
-                        'antecedent': instance.antecedent,
-                        'behaviour': instance.behaviour,
-                        'consequences': instance.consequences,
-                        'reflection': instance.reflection
-                    }
-                }
-
-                html_string = render_to_string('pdf_templates/abc_pdf.html', context)
-                pdf_bytes = HTML(string=html_string).write_pdf()
-                file_content = ContentFile(pdf_bytes)
-                filename = f'abc_form_{instance.id}_{instance.date_time.date()}.pdf'
-                instance.pdf_file.save(filename, file_content, save=True)
-                messages.success(request, 'ABC Form saved successfully!')
-                return redirect('abc_form_list')
-
-            except Exception as e:
-                messages.error(request, f'Error saving form: {str(e)}')
-                logger.exception("Error saving ABC form")
-        else:
-            messages.error(request, 'Please correct the form errors')
-            logger.debug(f"Form errors: {form.errors}")
-    else:
-        form = ABCFormForm(initial={'staff': request.user.get_full_name()})
-
-    return render(request, 'forms/abc_form.html', {'form': form})
-
-
-@login_required
 def abc_form_list(request):
     """Show list of forms with visibility control"""
     if request.user.is_superuser:
         forms = ABCForm.objects.all().order_by('-date_time')
     elif request.user.groups.filter(name='Supervisors').exists():
         forms = ABCForm.objects.filter(
-            service_user__in=request.user.managed_clients.all()
+            Q(service_user__in=request.user.managed_clients.all()) |
+            Q(created_by=request.user)
         ).order_by('-date_time')
     else:  # Regular care staff
         forms = ABCForm.objects.filter(
             created_by=request.user
         ).order_by('-date_time')
 
-    return render(request, 'forms/abc_form_list.html', {'forms': forms})
+    # Add select_related for performance
+    forms = forms.select_related('service_user', 'created_by')
+
+    return render(request, 'forms/abc_form_list.html', {
+        'forms': forms,
+        'can_edit': lambda form: (
+                request.user.is_superuser or
+                request.user.groups.filter(name='Supervisors').exists()
+        )
+    })
 
 
 @login_required
@@ -237,74 +168,161 @@ def download_abc_pdf(request, form_id):
 
 
 @login_required
-def edit_abc_form(request, form_id):
-    instance = get_object_or_404(ABCForm, id=form_id)
+def fill_abc_form(request):
     if request.method == 'POST':
-        form = ABCFormForm(request.POST, instance=instance)
+        form = ABCFormForm(request.POST)
         if form.is_valid():
-            updated = form.save()
+            try:
+                # Save the form - the combining of fields is now handled in form.save()
+                instance = form.save(commit=False)
+                instance.created_by = request.user
+                instance.save()
+                form.save_m2m()  # Save many-to-many relationships (target_behaviours)
 
-            # Regenerate PDF
-            html_string = render_to_string('pdf_templates/abc_pdf.html', {'data': updated})
-            with tempfile.NamedTemporaryFile(delete=True, suffix='.pdf') as output:
-                HTML(string=html_string).write_pdf(output.name)
-                with open(output.name, 'rb') as pdf_file:
-                    file_content = ContentFile(pdf_file.read())
-                    filename = f'abc_form_{updated.id}.pdf'
-                    updated.pdf_file.save(filename, file_content, save=True)
+                # PDF Generation
+                context = {
+                    'data': {
+                        'target_behaviours': form.cleaned_data['target_behaviours'],
+                        'service_user': instance.service_user,
+                        'date_of_birth': instance.date_of_birth,
+                        'staff': instance.staff,
+                        'date_time': instance.date_time,
+                        'setting': instance.setting,
+                        'antecedent': instance.antecedent,
+                        'behaviour': instance.behaviour,
+                        'consequences': instance.consequences,
+                        'reflection': instance.reflection
+                    }
+                }
 
-            return redirect('abc_form_list')
+                html_string = render_to_string('pdf_templates/abc_pdf.html', context)
+                pdf_bytes = HTML(string=html_string).write_pdf()
+
+                # Delete old PDF if exists (for edit case)
+                if hasattr(instance, 'pdf_file') and instance.pdf_file:
+                    instance.pdf_file.delete()
+
+                # Save new PDF
+                file_content = ContentFile(pdf_bytes)
+                filename = f'abc_form_{instance.id}_{instance.date_time.date()}.pdf'
+                instance.pdf_file.save(filename, file_content, save=True)
+
+                messages.success(request, 'ABC Form saved successfully!')
+                return redirect('abc_form_list')
+
+            except Exception as e:
+                messages.error(request, f'Error saving form: {str(e)}')
+                logger.exception("Error saving ABC form")
+        else:
+            messages.error(request, 'Please correct the form errors')
+            logger.debug(f"Form errors: {form.errors}")
     else:
-        form = ABCFormForm(instance=instance)
-    return render(request, 'forms/abc_form.html', {'form': form, 'edit': True})
+        # Initialize form with default values
+        initial_data = {
+            'staff': request.user.get_full_name(),
+            'date_time': timezone.now()
+        }
+        form = ABCFormForm(initial=initial_data)
+
+    return render(request, 'forms/abc_form.html', {'form': form})
 
 
 @login_required
-def fill_incident_form(request):
+def edit_abc_form(request, form_id):
+    instance = get_object_or_404(ABCForm, id=form_id)
+
     if request.method == 'POST':
-        form = IncidentReportForm(request.POST)
+        form = ABCFormForm(request.POST, instance=instance)
         if form.is_valid():
-            instance = form.save(commit=False)
-            instance.staff = request.user
-            instance.carehome = form.cleaned_data['service_user'].carehome  # auto-link carehome
-            instance.save()
+            try:
+                updated = form.save(commit=False)
+                updated.updated_by = request.user  # Track who made the update
+                updated.save()
+                form.save_m2m()
 
-            # Generate HTML for PDF
-            html_string = render_to_string('pdf_templates/incident_pdf.html', {'data': instance})
+                # Regenerate PDF (same as fill_abc_form)
+                context = {
+                    'data': {
+                        'target_behaviours': form.cleaned_data['target_behaviours'],
+                        'service_user': updated.service_user,
+                        'date_of_birth': updated.date_of_birth,
+                        'staff': updated.staff,
+                        'date_time': updated.date_time,
+                        'setting': updated.setting,
+                        'antecedent': updated.antecedent,
+                        'behaviour': updated.behaviour,
+                        'consequences': updated.consequences,
+                        'reflection': updated.reflection
+                    }
+                }
 
-            # Generate PDF using WeasyPrint
-            temp_pdf = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
-            temp_pdf.close()  # Close so WeasyPrint can write to it
+                html_string = render_to_string('pdf_templates/abc_pdf.html', context)
+                pdf_bytes = HTML(string=html_string).write_pdf()
 
-            HTML(string=html_string).write_pdf(temp_pdf.name)
+                if updated.pdf_file:
+                    updated.pdf_file.delete()
 
-            with open(temp_pdf.name, 'rb') as pdf_file:
-                file_content = ContentFile(pdf_file.read())
-                filename = f'incident_report_{instance.id}.pdf'
-                instance.pdf_file.save(filename, file_content)
+                file_content = ContentFile(pdf_bytes)
+                filename = f'abc_form_{updated.id}_{updated.date_time.date()}.pdf'
+                updated.pdf_file.save(filename, file_content, save=True)
 
-            os.unlink(temp_pdf.name)
-            return redirect('incident_report_list')
+                messages.success(request, 'ABC Form updated successfully!')
+                return redirect('abc_form_list')
+
+            except Exception as e:
+                messages.error(request, f'Error updating form: {str(e)}')
+                logger.exception("Error updating ABC form")
+        else:
+            messages.error(request, 'Please correct the form errors')
     else:
-        form = IncidentReportForm()
+        # The form will automatically parse the instance data
+        form = ABCFormForm(instance=instance)
 
-    return render(request, 'forms/incident_form.html', {'form': form})
+    return render(request, 'forms/abc_form.html', {
+        'form': form,
+        'edit': True,
+        'instance': instance
+    })
 
+def parse_abc_instance(instance):
+    """Helper function to parse the ABCForm instance into individual template fields"""
 
-def download_incident_pdf(request, form_id):
-    form_data = get_object_or_404(IncidentReport, id=form_id)
+    def extract_value(text, field_name, default=''):
+        if not text:
+            return default
+        for line in text.split('\n'):
+            if line.startswith(f"{field_name}:"):
+                return line.split(':', 1)[1].strip()
+        return default
 
-    # Render the template as string
-    html_string = render_to_string('pdf_templates/incident_pdf.html', {'data': form_data})
+    return {
+        'service_user': instance.service_user,
+        'date_of_birth': instance.date_of_birth,
+        'staff': instance.staff,
+        'date_time': instance.date_time,
+        'target_behaviours': instance.target_behaviours,
 
-    # Generate PDF from HTML string
-    pdf_file = HTML(string=html_string).write_pdf()
+        # Setting fields
+        'setting_location': extract_value(instance.setting, 'Location'),
+        'setting_present': extract_value(instance.setting, 'Present'),
+        'setting_activity': extract_value(instance.setting, 'Activity'),
+        'setting_environment': extract_value(instance.setting, 'Environment'),
 
-    # Return PDF as downloadable response
-    response = HttpResponse(pdf_file, content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename="incident_report_{form_id}.pdf"'
-    return response
+        # Antecedent fields
+        'antecedent_description': extract_value(instance.antecedent, 'Description'),
+        'antecedent_change': extract_value(instance.antecedent, 'Routine change', 'no'),
+        'antecedent_noise': extract_value(instance.antecedent, 'Unexpected noise', 'no'),
+        'antecedent_waiting': extract_value(instance.antecedent, 'Waiting for'),
 
+        # Behaviour field
+        'behaviour_description': extract_value(instance.behaviour, 'Description'),
+
+        # Consequences field
+        'consequence_immediate': extract_value(instance.consequences, 'Immediate'),
+
+        # Reflection field
+        'reflection_learnings': extract_value(instance.reflection, 'Learnings'),
+    }
 
 User = get_user_model()
 
@@ -508,6 +526,7 @@ def create_carehome(request):
 
     return render(request, 'carehomes/create.html', {'form': form})
 
+
 def edit_carehome(request, id):
     carehome = get_object_or_404(CareHome, id=id)
     if request.method == 'POST':
@@ -518,6 +537,7 @@ def edit_carehome(request, id):
     else:
         form = CareHomeForm(instance=carehome)
     return render(request, 'carehomes/create.html', {'form': form, 'edit_mode': True})
+
 
 def delete_carehome(request, id):
     carehome = get_object_or_404(CareHome, id=id)
@@ -601,16 +621,6 @@ def validate_postcode(request):
 def active_users_view(request):
     staff_list = get_filtered_queryset(CustomUser, request.user)
     return render(request, 'core/active_users.html', {'staff_list': staff_list})
-
-
-@login_required
-def missed_logs_view(request):
-    logs = get_filtered_queryset(LogEntry, request.user).filter(
-        is_locked=False,
-        content="",
-        date__lt=timezone.localdate()
-    )
-    return render(request, 'core/missed_logs.html', {'missed_logs': logs})
 
 
 def coerce_to_time(val):
@@ -751,7 +761,7 @@ def log_detail_view(request, pk):
         service_user=latest_log.service_user,
         date=latest_log.date,
         shift=latest_log.shift
-    ) 
+    )
 
     context = {
         'latest_log': latest_log,
@@ -763,57 +773,7 @@ def log_detail_view(request, pk):
     return render(request, 'logs/log_detail.html', context)
 
 
-@login_required
-def incident_report_list_view(request):
-    user = request.user
-
-    if user.is_superuser or user.role == 'manager':
-        # Managers see all incidents
-        incidents = IncidentReport.objects.select_related('service_user').order_by('-incident_datetime')
-
-    elif user.role == 'team_lead':
-        # Team leads see incidents in their carehome
-        incidents = IncidentReport.objects.filter(service_user__carehome=user.carehome).order_by('-incident_datetime')
-
-    elif user.role == 'staff':
-        # Staff see only incidents they submitted
-        incidents = IncidentReport.objects.filter(staff=user).order_by('-incident_datetime')
-
-    else:
-        # Other roles see nothing or can be handled separately
-        incidents = IncidentReport.objects.none()
-
-    return render(request, 'forms/incident_report_list.html', {'incidents': incidents})
-
-
-@login_required
-def edit_incident_form(request, form_id):
-    instance = get_object_or_404(IncidentReport, id=form_id)
-
-    if request.method == 'POST':
-        form = IncidentReportForm(request.POST, instance=instance)
-        if form.is_valid():
-            instance = form.save(commit=False)
-            instance.staff = request.user
-            instance.carehome = form.cleaned_data['service_user'].carehome
-            instance.save()
-
-            # Regenerate PDF
-            html_string = render_to_string('pdf_templates/incident_pdf.html', {'data': instance})
-            with tempfile.NamedTemporaryFile(delete=True, suffix='.pdf') as output:
-                HTML(string=html_string).write_pdf(output.name)
-                with open(output.name, 'rb') as pdf_file:
-                    file_content = ContentFile(pdf_file.read())
-                    filename = f'incident_report_{instance.id}.pdf'
-                    instance.pdf_file.save(filename, file_content)
-
-            return redirect('incident_detail', form_id=instance.id)
-    else:
-        form = IncidentReportForm(instance=instance)
-
-    return render(request, 'forms/incident_form.html', {'form': form})
-
-
+# views.py
 @login_required
 def create_log_view(request):
     mapping = Mapping.objects.filter(staff=request.user).first()
@@ -821,55 +781,91 @@ def create_log_view(request):
         return render(request, 'error.html', {'message': 'No mappings found for your account.'})
 
     if request.method == "POST":
+        # Get form data
         carehome = get_object_or_404(CareHome, id=request.POST.get("carehome"))
         service_user = get_object_or_404(ServiceUser, id=request.POST.get("service_user"))
-        shift = request.POST.get("shift")
+        shift = request.POST.get("shift", "").lower()
         today = timezone.localdate()
 
-        latest_log, created = LatestLogEntry.objects.get_or_create(
+        # Check if log already exists for this exact combination
+        existing_log = LatestLogEntry.objects.filter(
             user=request.user,
             carehome=carehome,
             service_user=service_user,
             shift=shift,
-            date=today,
-            defaults={'status': 'incomplete'}
-        )
+            date=today
+        ).first()
 
-        return redirect('log-entry-form', latest_log_id=latest_log.id)
+        if existing_log:
+            # Redirect to view mode if log exists
+            return redirect('log_detail_view', pk=existing_log.id)
+        else:
+            # Create new log and go to entry form
+            new_log = LatestLogEntry.objects.create(
+                user=request.user,
+                carehome=carehome,
+                service_user=service_user,
+                shift=shift,
+                date=today,
+                status='incomplete'
+            )
+            return redirect('log-entry-form', latest_log_id=new_log.id)
 
+    # GET request - show selection form
     return render(request, 'logs/log_entry_create.html', {
         "carehomes": mapping.carehomes.all(),
         "service_users": mapping.service_users.all(),
-        "shifts": ['Morning', 'Night']  # ✅ FINAL SHIFT OPTIONS
+        "shifts": ['Morning', 'Night']
     })
 
 
 def view_incident_report(request, pk):
-    # Get the incident report or return 404 if not found
     incident = get_object_or_404(IncidentReport, pk=pk)
 
-    # Prepare the context data to pass to the template
     context = {
         'data': {
-            'incident_datetime': incident.incident_datetime,
-            'location': incident.location,
+            'id': incident.id,
+            'staff': incident.staff,
             'service_user': incident.service_user,
-            'dob': incident.dob,  # Assuming service_user is a ForeignKey
+            'carehome': incident.carehome,
+            'incident_datetime': incident.incident_datetime.strftime('%Y-%m-%d %H:%M'),
+            'location': incident.location,
+            'dob': incident.dob.strftime('%Y-%m-%d'),
             'staff_involved': incident.staff_involved,
             'prior_description': incident.prior_description,
             'incident_description': incident.incident_description,
             'user_response': incident.user_response,
-            'injuries_detail': incident.injuries_detail,
+            'contacted_manager': incident.contacted_manager,
+            'manager_contact_date': incident.manager_contact_date.strftime(
+                '%Y-%m-%d %H:%M') if incident.manager_contact_date else None,
+            'manager_contact_comment': incident.manager_contact_comment,
+            'contacted_police': incident.contacted_police,
+            'police_contact_date': incident.police_contact_date.strftime(
+                '%Y-%m-%d %H:%M') if incident.police_contact_date else None,
+            'police_contact_comment': incident.police_contact_comment,
+            'contacted_paramedics': incident.contacted_paramedics,
+            'paramedics_contact_date': incident.paramedics_contact_date.strftime(
+                '%Y-%m-%d %H:%M') if incident.paramedics_contact_date else None,
+            'paramedics_contact_comment': incident.paramedics_contact_comment,
+            'contacted_other': incident.contacted_other,
+            'other_contact_name': incident.other_contact_name,
+            'other_contact_date': incident.other_contact_date.strftime(
+                '%Y-%m-%d %H:%M') if incident.other_contact_date else None,
+            'other_contact_comment': incident.other_contact_comment,
             'prn_administered': incident.prn_administered,
             'prn_by_whom': incident.prn_by_whom,
-            'contacted_manager': incident.contacted_manager,
-            'contacted_police': incident.contacted_police,
-            'contacted_paramedics': incident.contacted_paramedics,
-            # Add any other fields you need
-        }
+            'injuries_detail': incident.injuries_detail,
+            'property_damage': incident.property_damage,
+            'pdf_file': incident.pdf_file,
+            # Add these image fields
+            'image1': incident.image1,
+            'image2': incident.image2,
+            'image3': incident.image3,
+            'get_images': [img for img in [incident.image1, incident.image2, incident.image3] if img]
+        },
+        'can_edit': request.user.has_perm('core.change_incidentreport')
     }
-
-    return render(request, 'core\incident_report_template.html', context)
+    return render(request, 'core/incident_report_template.html', context)
 
 
 def generate_log_pdf(latest_log):
@@ -881,7 +877,7 @@ def generate_log_pdf(latest_log):
             service_user=latest_log.service_user,
             date=latest_log.date,
             shift=latest_log.shift
-        ) 
+        )
 
         # Also update these entries to point to the latest_log
         log_entries.update(latest_log=latest_log)
@@ -905,46 +901,6 @@ def generate_log_pdf(latest_log):
     except Exception as e:
         print(f"Error generating PDF: {str(e)}")
         return False
-
-
-@login_required
-def log_entry_form(request, latest_log_id):
-    latest_log = get_object_or_404(LatestLogEntry, id=latest_log_id)
-    shift = latest_log.shift.lower()
-    carehome = latest_log.carehome
-    service_user = latest_log.service_user
-    today = latest_log.date
-
-    # Dynamically choose shift start time
-    if shift == "morning":
-        base_start_time = carehome.morning_shift_start or time(8, 0)
-    elif shift == "night":
-        base_start_time = carehome.night_shift_start or time(20, 0)
-    else:
-        base_start_time = time(8, 0)  # fallback
-
-    time_slots = generate_shift_times(base_start_time)
-
-    log_entries = []
-    for slot in time_slots:
-        entry, _ = LogEntry.objects.get_or_create(
-            user=latest_log.user,
-            carehome=latest_log.carehome,
-            service_user=latest_log.service_user,
-            shift=latest_log.shift,
-            date=latest_log.date,
-            time_slot=slot
-        )
-        log_entries.append(entry)
-
-    return render(request, 'forms/log_entry_form.html', {
-        'log_entries': log_entries,
-        'latest_log': latest_log,
-        'shift': latest_log.shift,  # Add this
-        'carehome': carehome,  # Add this
-        'service_user': service_user,  # Add this
-        'today': today  # Add this
-    })
 
 
 @login_required
@@ -1012,8 +968,8 @@ def save_log_entry(request, entry_id):
             entry.save()
 
             if entry.latest_log:
-                entry.latest_log.status = 'incomplete'
-                entry.latest_log.save()
+                # entry.latest_log.status = 'incomplete'
+                # entry.latest_log.save()
                 if hasattr(entry.latest_log, 'generate_pdf'):
                     entry.latest_log.generate_pdf()
 
@@ -1060,3 +1016,277 @@ def get_service_users_by_carehome(request):
         return JsonResponse({'error': 'Invalid carehome ID format'}, status=400)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)
+
+
+@login_required
+def fill_incident_form(request):
+    if request.method == 'POST':
+        form = IncidentReportForm(request.POST, request.FILES)  # Added request.FILES
+        if form.is_valid():
+            instance = form.save(commit=False)
+            instance.staff = request.user
+            instance.save()
+            # Handle image resizing/validation if needed
+            for i in range(1, 4):
+                image_field = f'image{i}'
+                if image_field in request.FILES:
+                    # You could add image processing here if needed
+                    setattr(instance, image_field, request.FILES[image_field])
+
+            instance.carehome = form.cleaned_data['service_user'].carehome
+            instance.save()
+
+            # Generate HTML for PDF with images
+            html_string = render_to_string('pdf_templates/incident_pdf.html', {'data': instance})
+
+            # Generate PDF with WeasyPrint
+            temp_pdf = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
+            temp_pdf.close()
+
+            # Handle base_url for WeasyPrint to access media files
+            base_url = request.build_absolute_uri('/')[:-1]  # Remove trailing slash
+            HTML(string=html_string, base_url=base_url).write_pdf(temp_pdf.name)
+
+            with open(temp_pdf.name, 'rb') as pdf_file:
+                file_content = ContentFile(pdf_file.read())
+                filename = f'incident_report_{instance.id}.pdf'
+                instance.pdf_file.save(filename, file_content)
+
+            os.unlink(temp_pdf.name)
+            return redirect('incident_report_list')
+    else:
+        form = IncidentReportForm()
+
+    return render(request, 'forms/incident_form.html', {'form': form})
+
+
+@login_required
+def incident_report_list_view(request):
+    user = request.user
+
+    if user.is_superuser or user.role == 'manager':
+        incidents = IncidentReport.objects.select_related('service_user').order_by('-incident_datetime')
+    elif user.role == 'team_lead':
+        incidents = IncidentReport.objects.filter(service_user__carehome=user.carehome).order_by('-incident_datetime')
+    elif user.role == 'staff':
+        incidents = IncidentReport.objects.filter(staff=user).order_by('-incident_datetime')
+    else:
+        incidents = IncidentReport.objects.none()
+
+    # Add image preview flag to each incident
+    for incident in incidents:
+        incident.has_images = any([
+            incident.image1,
+            incident.image2,
+            incident.image3
+        ])
+
+    return render(request, 'forms/incident_report_list.html', {'incidents': incidents})
+
+
+@login_required
+def edit_incident_form(request, form_id):
+    instance = get_object_or_404(IncidentReport, id=form_id)
+
+    # Check permission - only original staff or managers can edit
+    if not (request.user == instance.staff or request.user.role in ['manager', 'superuser']):
+        return redirect('incident_report_list')
+
+    if request.method == 'POST':
+        form = IncidentReportForm(request.POST, request.FILES, instance=instance)
+        if form.is_valid():
+            instance = form.save(commit=False)
+            instance.staff = request.user
+
+            # Handle image updates
+            for i in range(1, 4):
+                image_field = f'image{i}'
+                if image_field in request.FILES:
+                    # Clear existing image if new one is uploaded
+                    if getattr(instance, image_field):
+                        getattr(instance, image_field).delete()
+                    setattr(instance, image_field, request.FILES[image_field])
+                elif f'{image_field}-clear' in request.POST:
+                    # Handle image removal if clear checkbox is checked
+                    if getattr(instance, image_field):
+                        getattr(instance, image_field).delete()
+                        setattr(instance, image_field, None)
+
+            instance.carehome = form.cleaned_data['service_user'].carehome
+            instance.save()
+
+            # Regenerate PDF with updated images
+            html_string = render_to_string('pdf_templates/incident_pdf.html', {'data': instance})
+            base_url = request.build_absolute_uri('/')[:-1]
+            with tempfile.NamedTemporaryFile(delete=True, suffix='.pdf') as output:
+                HTML(string=html_string, base_url=base_url).write_pdf(output.name)
+                with open(output.name, 'rb') as pdf_file:
+                    file_content = ContentFile(pdf_file.read())
+                    filename = f'incident_report_{instance.id}.pdf'
+                    instance.pdf_file.save(filename, file_content)
+
+            return redirect('incident_detail', form_id=instance.id)
+    else:
+        form = IncidentReportForm(instance=instance)
+
+    return render(request, 'forms/incident_form.html', {
+        'form': form,
+        'existing_images': [
+            {'field': 'image1', 'url': instance.image1.url if instance.image1 else None},
+            {'field': 'image2', 'url': instance.image2.url if instance.image2 else None},
+            {'field': 'image3', 'url': instance.image3.url if instance.image3 else None},
+        ]
+    })
+
+
+def download_incident_pdf(request, form_id):
+    form_data = get_object_or_404(IncidentReport, id=form_id)
+
+    html_string = render_to_string('pdf_templates/incident_pdf.html', {
+        'data': form_data,
+        'request': request  # Important for media URL resolution
+    })
+
+    base_url = request.build_absolute_uri('/')
+    pdf_file = HTML(string=html_string, base_url=base_url).write_pdf()
+
+    response = HttpResponse(pdf_file, content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="incident_report_{form_id}.pdf"'
+    return response
+
+
+@login_required
+def missed_shifts_view(request):
+    # Get carehomes based on role
+    if request.user.role == 'manager':
+        carehomes = CareHome.objects.all()
+    elif request.user.role == 'team_lead':
+        carehomes = request.user.managed_carehomes.all()
+    else:
+        carehomes = CareHome.objects.none()
+
+    today = timezone.localdate()
+    date_from = today - timedelta(days=180)  # Last 6 months
+    missing_entries = []
+
+    for carehome in carehomes:
+        # Get existing valid logs (complete or locked)
+        existing_logs = LatestLogEntry.objects.filter(
+            carehome=carehome,
+            date__gte=date_from,
+            date__lt=today
+        ).exclude(status='incomplete')
+
+        existing_combinations = {
+            (log.service_user_id, log.date, log.shift)
+            for log in existing_logs
+        }
+
+        # Check each date in range
+        current_date = date_from
+        while current_date < today:
+            # Morning shift check
+            if carehome.morning_shift_start and carehome.morning_shift_end:
+                for service_user in carehome.service_users.all():
+                    if (service_user.id, current_date, 'morning') not in existing_combinations:
+                        missing_entries.append({
+                            'date': current_date,
+                            'carehome': carehome,
+                            'service_user': service_user,
+                            'shift': 'Morning',
+                            'time': f"{carehome.morning_shift_start.strftime('%H:%M')}-{carehome.morning_shift_end.strftime('%H:%M')}"
+                        })
+
+            # Night shift check
+            if carehome.night_shift_start and carehome.night_shift_end:
+                for service_user in carehome.service_users.all():
+                    if (service_user.id, current_date, 'night') not in existing_combinations:
+                        missing_entries.append({
+                            'date': current_date,
+                            'carehome': carehome,
+                            'service_user': service_user,
+                            'shift': 'Night',
+                            'time': f"{carehome.night_shift_start.strftime('%H:%M')}-{carehome.night_shift_end.strftime('%H:%M')}"
+                        })
+
+            current_date += timedelta(days=1)
+
+    return render(request, 'core/missed_logs.html', {
+        'missing_entries': missing_entries,
+        'total_missed': len(missing_entries),
+        'date_range': f"{date_from.strftime('%b %d, %Y')} to {today.strftime('%b %d, %Y')}"
+    })
+
+
+@login_required
+def log_entry_form(request, latest_log_id):
+    latest_log = get_object_or_404(LatestLogEntry, id=latest_log_id)
+    shift = latest_log.shift.lower()
+    carehome = latest_log.carehome
+    service_user = latest_log.service_user
+    today = latest_log.date
+
+    # Permission check - staff can only edit their own logs
+    if request.user.role == 'staff' and latest_log.user != request.user:
+        messages.error(request, "You can only edit your own logs")
+        return redirect('staff-dashboard')
+
+    # For staff users - redirect to view if log is already completed
+    if (request.user.role == 'staff' and
+            latest_log.status == 'completed' and
+            not request.GET.get('force_edit')):
+        messages.info(request, "Viewing completed log. Use 'Edit' button to make changes.")
+        return redirect('log-detail-view', latest_log_id=latest_log.id)
+
+    # Dynamically choose shift start time
+    if shift == "morning":
+        base_start_time = carehome.morning_shift_start or time(8, 0)
+    elif shift == "night":
+        base_start_time = carehome.night_shift_start or time(20, 0)
+    else:
+        base_start_time = time(8, 0)  # fallback
+
+    time_slots = generate_shift_times(base_start_time)
+
+    # Get or create log entries
+    log_entries = []
+    for slot in time_slots:
+        entry, created = LogEntry.objects.get_or_create(
+            user=latest_log.user,
+            carehome=latest_log.carehome,
+            service_user=latest_log.service_user,
+            shift=latest_log.shift,
+            date=latest_log.date,
+            time_slot=slot,
+            defaults={'latest_log': latest_log}
+        )
+        log_entries.append(entry)
+
+    # Sort entries by time slot if needed
+    log_entries.sort(key=lambda x: x.time_slot)
+
+    return render(request, 'forms/log_entry_form.html', {
+        'log_entries': log_entries,
+        'latest_log': latest_log,
+        'shift': latest_log.shift,
+        'carehome': carehome,
+        'service_user': service_user,
+        'today': today,
+        'can_edit': True,  # Since we got here, editing is allowed
+        'is_update': True,
+        "user_role": request.user.role,  # Flag to show this is an update
+        'force_edit_param': 'force_edit=true'  # For edit buttons in template
+    })
+
+
+def generate_time_slots(start_time, end_time):
+    """Generate hourly time slots between start and end times"""
+    time_slots = []
+    current_time = start_time
+
+    while current_time < end_time:
+        time_slots.append(current_time)
+        # Add one hour
+        current_time = (datetime.combine(date.today(), current_time) + timedelta(hours=1)).time()
+
+    return time_slots

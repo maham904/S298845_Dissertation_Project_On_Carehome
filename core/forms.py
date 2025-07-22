@@ -106,85 +106,21 @@ class StaffCreationForm(UserCreationForm):
         return cleaned_data
 
 
-class ABCFormForm(forms.ModelForm):
-    TARGET_BEHAVIOUR_CHOICES = [
-        ('physical_aggression', 'Physical aggressive behaviour towards other people'),
-        ('property_destruction', 'Property destruction e.g., ripping clothes'),
-        ('self_injury', 'Self-injurious behaviours e.g., hitting the wall'),
-        ('verbal_aggression', 'Verbal aggression'),
-        ('other', 'Other / stereotyped behaviours e.g., screaming'),
-    ]
-
-    target_behaviours = forms.MultipleChoiceField(
-        choices=TARGET_BEHAVIOUR_CHOICES,
-        widget=forms.CheckboxSelectMultiple(attrs={'class': 'checkbox-list'}),
-        required=False,
-        label='Target Behaviours (select all that apply)'
-    )
-
-    class Meta:
-        model = ABCForm
-        fields = '__all__'
-        widgets = {
-            'service_user': forms.Select(attrs={
-                'class': 'form-control select2',
-                'data-placeholder': 'Select a service user'
-            }),
-            'date_time': forms.DateTimeInput(attrs={
-                'type': 'datetime-local',
-                'class': 'form-control'
-            }),
-            'date_of_birth': forms.DateInput(attrs={
-                'type': 'date',
-                'class': 'form-control'
-            }),
-            'staff': forms.TextInput(attrs={
-                'class': 'form-control'
-            }),
-            'setting': forms.Textarea(attrs={
-                'rows': 3,
-                'class': 'form-control',
-                'placeholder': 'Where? Who was present? What was happening?'
-            }),
-            'antecedent': forms.Textarea(attrs={
-                'rows': 3,
-                'class': 'form-control',
-                'placeholder': 'What happened just before the behaviour started?'
-            }),
-            'behaviour': forms.Textarea(attrs={
-                'rows': 5,
-                'class': 'form-control',
-                'placeholder': 'Describe exactly what the client did'
-            }),
-            'consequences': forms.Textarea(attrs={
-                'rows': 3,
-                'class': 'form-control',
-                'placeholder': 'What happened after the behaviour took place?'
-            }),
-            'reflection': forms.Textarea(attrs={
-                'rows': 3,
-                'class': 'form-control',
-                'placeholder': 'What can we learn from this situation?'
-            }),
-        }
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        # Order service users by last name
-        self.fields['service_user'].label_from_instance = lambda obj: obj.get_formatted_name()
-
-    # Make staff field regular text input (not autofilled)
-        self.fields['staff'].initial = ''  # Clear auto-population
-        self.fields['staff'].widget.attrs.update({
-            'placeholder': 'Enter staff name manually'
-        })
-
 class IncidentReportForm(forms.ModelForm):
     class Meta:
         model = IncidentReport
         fields = '__all__'
         exclude = ['staff', 'carehome', 'pdf_file', 'created_at']
+        widgets = {
+            'incident_datetime': forms.DateTimeInput(attrs={'type': 'datetime-local'}),
+            'manager_contact_date': forms.DateTimeInput(attrs={'type': 'datetime-local'}),
+            'police_contact_date': forms.DateTimeInput(attrs={'type': 'datetime-local'}),
+            'paramedics_contact_date': forms.DateTimeInput(attrs={'type': 'datetime-local'}),
+            'other_contact_date': forms.DateTimeInput(attrs={'type': 'datetime-local'}),
+            'image1': forms.ClearableFileInput(attrs={'accept': 'image/*'}),
+            'image2': forms.ClearableFileInput(attrs={'accept': 'image/*'}),
+            'image3': forms.ClearableFileInput(attrs={'accept': 'image/*'}),
+        }
 
 
 class LogEntryForm(forms.ModelForm):
@@ -227,3 +163,185 @@ def __init__(self, *args, **kwargs):
             pass
     elif self.instance.pk:
         self.fields['service_users'].queryset = self.instance.service_users.all()
+
+
+class ABCFormForm(forms.ModelForm):
+    TARGET_BEHAVIOUR_CHOICES = [
+        ('physical_aggression', 'Physical aggressive behaviour towards other people'),
+        ('property_destruction', 'Property destruction e.g., ripping clothes'),
+        ('self_injury', 'Self-injurious behaviours e.g., hitting the wall'),
+        ('verbal_aggression', 'Verbal aggression'),
+        ('other', 'Other / stereotyped behaviours e.g., screaming'),
+    ]
+
+    # Target behaviours field
+    target_behaviours = forms.MultipleChoiceField(
+        choices=TARGET_BEHAVIOUR_CHOICES,
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'checkbox-list'}),
+        required=False,
+        label='Target Behaviours (select all that apply)'
+    )
+
+    # Setting fields
+    setting_location = forms.CharField(
+        label="Where did the behavior occur?",
+        widget=forms.TextInput(attrs={'class': 'form-control'}),
+        required=True
+    )
+    setting_present = forms.CharField(
+        label="Who was present?",
+        widget=forms.TextInput(attrs={'class': 'form-control'}),
+        required=True
+    )
+    setting_activity = forms.CharField(
+        label="What was happening?",
+        widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+        required=True
+    )
+    setting_environment = forms.CharField(
+        label="Describe the environment (noise, temperature, etc.)",
+        widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+        required=False
+    )
+
+    # Antecedent fields
+    antecedent_description = forms.CharField(
+        label="What happened just before the behaviour started?",
+        widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+        required=True
+    )
+    antecedent_change = forms.ChoiceField(
+        label="Was there a change in routine?",
+        choices=[('yes', 'Yes'), ('no', 'No')],
+        widget=forms.Select(attrs={'class': 'form-control'}),
+        initial='no'
+    )
+    antecedent_noise = forms.ChoiceField(
+        label="Was there unexpected noise?",
+        choices=[('yes', 'Yes'), ('no', 'No')],
+        widget=forms.Select(attrs={'class': 'form-control'}),
+        initial='no'
+    )
+    antecedent_waiting = forms.CharField(
+        label="Was the client waiting for something?",
+        widget=forms.TextInput(attrs={'class': 'form-control'}),
+        required=False
+    )
+
+    # Behaviour field
+    behaviour_description = forms.CharField(
+        label="Describe exactly what the client did",
+        widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 5}),
+        required=True
+    )
+
+    # Consequences field
+    consequence_immediate = forms.CharField(
+        label="What happened after the behaviour took place? What did you do?",
+        widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+        required=True
+    )
+
+    # Reflection field
+    reflection_learnings = forms.CharField(
+        label="What can we learn from this situation & take forward whilst supporting the client?",
+        widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+        required=True
+    )
+
+    class Meta:
+        model = ABCForm
+        fields = ['service_user', 'date_of_birth', 'staff', 'date_time', 'target_behaviours']
+        widgets = {
+            'service_user': forms.Select(attrs={
+                'class': 'form-control select2',
+                'data-placeholder': 'Select a service user'
+            }),
+            'date_time': forms.DateTimeInput(attrs={
+                'type': 'datetime-local',
+                'class': 'form-control'
+            }),
+            'date_of_birth': forms.DateInput(attrs={
+                'type': 'date',
+                'class': 'form-control'
+            }),
+            'staff': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Enter staff name manually'
+            }),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # Order service users by last name
+        self.fields['service_user'].label_from_instance = lambda obj: obj.get_formatted_name()
+
+        # Parse existing instance data for edit view
+        if self.instance and self.instance.pk:
+            self.parse_instance_data()
+
+    def parse_instance_data(self):
+        """Parse the combined fields into individual form fields"""
+        # Parse setting
+        setting_data = self.parse_field_text(self.instance.setting)
+        self.initial.update({
+            'setting_location': setting_data.get('Location', ''),
+            'setting_present': setting_data.get('Present', ''),
+            'setting_activity': setting_data.get('Activity', ''),
+            'setting_environment': setting_data.get('Environment', '')
+        })
+
+        # Parse antecedent
+        antecedent_data = self.parse_field_text(self.instance.antecedent)
+        self.initial.update({
+            'antecedent_description': antecedent_data.get('Description', ''),
+            'antecedent_change': antecedent_data.get('Routine change', 'no'),
+            'antecedent_noise': antecedent_data.get('Unexpected noise', 'no'),
+            'antecedent_waiting': antecedent_data.get('Waiting for', '')
+        })
+
+        # Parse other fields
+        behaviour_data = self.parse_field_text(self.instance.behaviour)
+        self.initial['behaviour_description'] = behaviour_data.get('Description', '')
+
+        consequences_data = self.parse_field_text(self.instance.consequences)
+        self.initial['consequence_immediate'] = consequences_data.get('Immediate', '')
+
+        reflection_data = self.parse_field_text(self.instance.reflection)
+        self.initial['reflection_learnings'] = reflection_data.get('Learnings', '')
+
+    @staticmethod
+    def parse_field_text(text):
+        """Helper method to parse field text into dictionary"""
+        if not text:
+            return {}
+        return dict(line.split(':', 1) for line in text.split('\n') if ':' in line)
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+
+        # Combine individual fields into model's text fields
+        instance.setting = "\n".join([
+            f"Location: {self.cleaned_data.get('setting_location', '')}",
+            f"Present: {self.cleaned_data.get('setting_present', '')}",
+            f"Activity: {self.cleaned_data.get('setting_activity', '')}",
+            f"Environment: {self.cleaned_data.get('setting_environment', '')}"
+        ])
+
+        instance.antecedent = "\n".join([
+            f"Description: {self.cleaned_data.get('antecedent_description', '')}",
+            f"Routine change: {self.cleaned_data.get('antecedent_change', 'no')}",
+            f"Unexpected noise: {self.cleaned_data.get('antecedent_noise', 'no')}",
+            f"Waiting for: {self.cleaned_data.get('antecedent_waiting', '')}"
+        ])
+
+        instance.behaviour = f"Description: {self.cleaned_data.get('behaviour_description', '')}"
+        instance.consequences = f"Immediate: {self.cleaned_data.get('consequence_immediate', '')}"
+        instance.reflection = f"Learnings: {self.cleaned_data.get('reflection_learnings', '')}"
+
+        if commit:
+            instance.save()
+            self.save_m2m()
+
+        return instance

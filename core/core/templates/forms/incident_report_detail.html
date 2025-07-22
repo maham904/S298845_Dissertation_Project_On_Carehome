@@ -2,23 +2,22 @@
 {% block content %}
 <div class="container mt-3">
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h2>Incident Report #{{ incident.id }}</h2>
+        <h2>Incident Report #{{ data.id }}</h2>
         <div class="btn-group">
             {% if can_edit %}
-            <a href="{% url 'edit_incident_form' incident.id %}" class="btn btn-sm btn-warning">
+            <a href="{% url 'edit_incident_form' data.id %}" class="btn btn-sm btn-warning">
                 <i class="fas fa-edit"></i> Edit
             </a>
             {% endif %}
             <button onclick="window.print()" class="btn btn-sm btn-primary">
                 <i class="fas fa-print"></i> Print/PDF
             </button>
-            <a href="{% url 'download_incident_pdf' incident.id %}" class="btn btn-sm btn-success">
+            <a href="{% url 'download_incident_pdf' data.id %}" class="btn btn-sm btn-success">
                 <i class="fas fa-file-pdf"></i> Download
             </a>
         </div>
     </div>
 
-    <!-- Print-specific styles -->
     <style>
         @media print {
             nav, .no-print, .btn-group {
@@ -38,130 +37,227 @@
             }
         }
 
-        /* Enhanced copy protection */
         .protected-content {
             user-select: none;
             -webkit-user-select: none;
             -moz-user-select: none;
             -ms-user-select: none;
         }
+
+        .text-content {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            min-height: 100px;
+            max-height: 300px;
+            overflow-y: auto;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
+        }
+
+        .contact-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .contact-table th, .contact-table td {
+            border: 1px solid #dee2e6;
+            padding: 8px;
+            vertical-align: top;
+            word-wrap: break-word;
+        }
+
+        .contact-table th {
+            background-color: #f8f9fa;
+            text-align: left;
+        }
+
+        .checkbox-cell {
+            width: 40px;
+            text-align: center;
+        }
+
+        .datetime-cell {
+            width: 150px;
+            min-width: 150px;
+        }
+
+        .comment-cell {
+            white-space: pre-wrap;
+        }
+
+        .section-title {
+            color: #4e73df;
+            margin-top: 20px;
+        }
+
+        /* Fix for table cell text wrapping */
+        .contact-table td {
+            word-break: break-word;
+        }
+
+        /* Ensure text areas don't overflow */
+        .text-content, .comment-cell {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 10; /* Limit to 10 lines */
+            -webkit-box-orient: vertical;
+        }
     </style>
 
-    <!-- Main content (visible on screen) -->
     <div class="card no-print">
         <div class="card-body protected-content">
+            <!-- Basic Information -->
             <div class="row mb-4">
                 <div class="col-md-6">
-                    <h5 class="text-primary"><i class="fas fa-info-circle"></i> Basic Information</h5>
+                    <h5 class="section-title"><i class="fas fa-info-circle"></i> Basic Information</h5>
                     <hr>
-                    <p><strong><i class="far fa-calendar-alt"></i> Date/Time:</strong> {{ incident.incident_datetime|date:"Y-m-d H:i" }}</p>
-                    <p><strong><i class="fas fa-user"></i> Service User:</strong> {{ incident.service_user }}</p>
-                    <p><strong><i class="fas fa-map-marker-alt"></i> Location:</strong> {{ incident.location }}</p>
-                    <p><strong><i class="fas fa-user-tie"></i> Reported by:</strong> {{ incident.staff.get_full_name }}</p>
+                    <p><strong>Date/Time:</strong> {{ data.incident_datetime|date:"Y-m-d H:i" }}</p>
+                    <p><strong>Service User:</strong> {{ data.service_user }}</p>
+                    <p><strong>Date of Birth:</strong> {{ data.dob|date:"Y-m-d" }}</p>
                 </div>
                 <div class="col-md-6">
-                    <h5 class="text-primary"><i class="fas fa-clipboard-check"></i> Status</h5>
+                    <h5 class="section-title"><i class="fas fa-clipboard-check"></i> Details</h5>
                     <hr>
-                    <p><strong>Created:</strong> {{ incident.created_at|date:"Y-m-d" }}</p>
-                    <p><strong>Last Updated:</strong> {{ incident.updated_at|date:"Y-m-d H:i" }}</p>
-                    <p><strong>Status:</strong> <span class="badge bg-{{ incident.resolved|yesno:"success,warning" }}">
-                        {{ incident.resolved|yesno:"Resolved,Open" }}
-                    </span></p>
+                    <p><strong>Location:</strong> {{ data.location }}</p>
+                    <p><strong>Staff Involved:</strong> {{ data.staff_involved }}</p>
+                    <p><strong>Reported by:</strong> {{ data.staff.get_full_name }}</p>
+                    <p><strong>Care Home:</strong> {{ data.carehome|default:"N/A" }}</p>
                 </div>
             </div>
 
+            <!-- Incident Details -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <h5 class="section-title"><i class="fas fa-file-alt"></i> Incident Details</h5>
+                    <hr>
+                    <div class="mb-3">
+                        <h6>Prior to Incident:</h6>
+                        <div class="text-content">
+                            {{ data.prior_description|default:"N/A" }}
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <h6>Incident Description:</h6>
+                        <div class="text-content">
+                            {{ data.incident_description|default:"N/A" }}
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <h6>Service User Response:</h6>
+                        <div class="text-content">
+                            {{ data.user_response|default:"N/A" }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Medical and Contact Details -->
             <div class="row">
-                <div class="col-12">
-                    <h5 class="text-primary"><i class="fas fa-file-alt"></i> Incident Details</h5>
+                <div class="col-md-6">
+                    <h5 class="section-title"><i class="fas fa-user-md"></i> Medical Details</h5>
                     <hr>
-                    <div class="border p-3 bg-light">
-                        {{ incident.description|linebreaks }}
+                    <div class="mb-3">
+                        <h6>Injuries:</h6>
+                        <div class="text-content">
+                            {{ data.injuries_detail|default:"N/A" }}
+                        </div>
                     </div>
-                </div>
-            </div>
 
-            {% if incident.additional_notes %}
-            <div class="row mt-4">
-                <div class="col-12">
-                    <h5 class="text-primary"><i class="fas fa-sticky-note"></i> Additional Notes</h5>
+                    <div class="mb-3">
+                        <h6>PRN Medication:</h6>
+                        <div class="p-3 bg-light">
+                            <p><strong>Administered:</strong> {{ data.prn_administered|yesno:"Yes,No" }}</p>
+                            {% if data.prn_administered %}
+                            <p><strong>By whom:</strong> {{ data.prn_by_whom|default:"Not specified" }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <h5 class="section-title"><i class="fas fa-home"></i> Property Details</h5>
                     <hr>
-                    <div class="border p-3 bg-light">
-                        {{ incident.additional_notes|linebreaks }}
+                    <div class="text-content">
+                        {{ data.property_damage|default:"No property damage reported" }}
                     </div>
                 </div>
+
+                <div class="col-md-6">
+                    <h5 class="section-title"><i class="fas fa-address-book"></i> Contacted Parties</h5>
+                    <hr>
+                    <table class="contact-table">
+                        <thead>
+                            <tr>
+                                <th>Person</th>
+                                <th class="checkbox-cell">Contacted</th>
+                                <th class="datetime-cell">Date/Time</th>
+                                <th class="comment-cell">Comments</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Manager</td>
+                                <td class="checkbox-cell">{% if data.contacted_manager %}✓{% else %}□{% endif %}</td>
+                                <td class="datetime-cell">{% if data.contacted_manager %}{{ data.manager_contact_date|date:"Y-m-d H:i"|default:"Not specified" }}{% endif %}</td>
+                                <td class="comment-cell">{% if data.contacted_manager %}{{ data.manager_contact_comment|default:"No comments" }}{% endif %}</td>
+                            </tr>
+                            <tr>
+                                <td>Police</td>
+                                <td class="checkbox-cell">{% if data.contacted_police %}✓{% else %}□{% endif %}</td>
+                                <td class="datetime-cell">{% if data.contacted_police %}{{ data.police_contact_date|date:"Y-m-d H:i"|default:"Not specified" }}{% endif %}</td>
+                                <td class="comment-cell">{% if data.contacted_police %}{{ data.police_contact_comment|default:"No comments" }}{% endif %}</td>
+                            </tr>
+                            <tr>
+                                <td>Paramedics</td>
+                                <td class="checkbox-cell">{% if data.contacted_paramedics %}✓{% else %}□{% endif %}</td>
+                                <td class="datetime-cell">{% if data.contacted_paramedics %}{{ data.paramedics_contact_date|date:"Y-m-d H:i"|default:"Not specified" }}{% endif %}</td>
+                                <td class="comment-cell">{% if data.contacted_paramedics %}{{ data.paramedics_contact_comment|default:"No comments" }}{% endif %}</td>
+                            </tr>
+                            <tr>
+                                <td>Other: {% if data.contacted_other %}{{ data.other_contact_name|default:"Not specified" }}{% endif %}</td>
+                                <td class="checkbox-cell">{% if data.contacted_other %}✓{% else %}□{% endif %}</td>
+                                <td class="datetime-cell">{% if data.contacted_other %}{{ data.other_contact_date|date:"Y-m-d H:i"|default:"Not specified" }}{% endif %}</td>
+                                <td class="comment-cell">{% if data.contacted_other %}{{ data.other_contact_comment|default:"No comments" }}{% endif %}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    {% if data.pdf_file %}
+                    <h5 class="section-title mt-4"><i class="fas fa-file-pdf"></i> Attached PDF</h5>
+                    <hr>
+                    <a href="{{ data.pdf_file.url }}" class="btn btn-sm btn-info" target="_blank">
+                        <i class="fas fa-download"></i> View Attached PDF
+                    </a>
+                    {% endif %}
+                </div>
             </div>
-            {% endif %}
         </div>
     </div>
 
-    <!-- PDF version (hidden on screen, shows when printing) -->
     <div class="d-none print-only">
-        <div style="padding: 20px; font-family: Arial;">
-            <h2 style="text-align: center;">PRESTIGE SUPPORTED LIVING SERVICES LTD</h2>
-            <h3 style="text-align: center;">Incident Report Form</h3>
-
-            <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
-                <tr>
-                    <td style="border: 1px solid #000; padding: 8px; width: 25%; font-weight: bold;">Date/Time:</td>
-                    <td style="border: 1px solid #000; padding: 8px;">{{ incident.incident_datetime|date:"Y-m-d H:i" }}</td>
-                    <td style="border: 1px solid #000; padding: 8px; width: 25%; font-weight: bold;">Location:</td>
-                    <td style="border: 1px solid #000; padding: 8px;">{{ incident.location }}</td>
-                </tr>
-                <tr>
-                    <td style="border: 1px solid #000; padding: 8px; font-weight: bold;">Service User:</td>
-                    <td style="border: 1px solid #000; padding: 8px;">{{ incident.service_user }}</td>
-                    <td style="border: 1px solid #000; padding: 8px; font-weight: bold;">Reported by:</td>
-                    <td style="border: 1px solid #000; padding: 8px;">{{ incident.staff.get_full_name }}</td>
-                </tr>
-            </table>
-
-            <h4 style="margin-top: 30px;">Incident Details</h4>
-            <div style="border: 1px solid #000; padding: 10px; min-height: 200px;">
-                {{ incident.description|linebreaks }}
-            </div>
-
-            {% if incident.additional_notes %}
-            <h4 style="margin-top: 30px;">Additional Notes</h4>
-            <div style="border: 1px solid #000; padding: 10px; min-height: 100px;">
-                {{ incident.additional_notes|linebreaks }}
-            </div>
-            {% endif %}
-
-            <div style="margin-top: 50px; border-top: 1px solid #000; padding-top: 10px;">
-                <table style="width: 100%;">
-                    <tr>
-                        <td style="width: 50%;">
-                            <p><strong>Staff Signature:</strong></p>
-                            <p style="margin-top: 50px;">_________________________</p>
-                        </td>
-                        <td style="width: 50%;">
-                            <p><strong>Date:</strong></p>
-                            <p style="margin-top: 50px;">_________________________</p>
-                        </td>
-                    </tr>
-                </table>
-            </div>
-        </div>
+        <p style="text-align: center; color: red; font-weight: bold;">
+            For the official PDF version, please use the "Download PDF" button.
+        </p>
     </div>
 </div>
 
 <script>
-// Enhanced protection against copying
 document.addEventListener('DOMContentLoaded', function() {
-    // Disable right-click
+    // Copy protection
     document.addEventListener('contextmenu', function(e) {
         e.preventDefault();
         alert('Copying content is not permitted');
     });
 
-    // Disable text selection
     document.addEventListener('selectstart', function(e) {
         e.preventDefault();
     });
 
-    // Disable keyboard shortcuts
     document.addEventListener('keydown', function(e) {
-        // Disable Ctrl+C, Ctrl+X, Ctrl+A
         if (e.ctrlKey && (e.key === 'c' || e.key === 'C' ||
                           e.key === 'x' || e.key === 'X' ||
                           e.key === 'a' || e.key === 'A')) {
@@ -170,7 +266,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Add watermark effect
+    // Watermark effect
     const contentDivs = document.querySelectorAll('.protected-content');
     contentDivs.forEach(div => {
         div.style.backgroundImage = 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'400\' height=\'400\' opacity=\'0.05\'><text x=\'50\' y=\'50\' font-family=\'Arial\' font-size=\'20\' transform=\'rotate(-30)\'>CONFIDENTIAL</text></svg>")';

@@ -1,5 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
+from django.core.exceptions import FieldError
+
 from .models import CustomUser, CareHome, ServiceUser, LogEntry, Mapping, IncidentReport, ABCForm, LatestLogEntry
 
 
@@ -31,6 +33,14 @@ class CustomUserAdmin(UserAdmin):
     )
 
     # Custom methods
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "carehome":
+            if request.user.role == 'manager':
+                kwargs["queryset"] = CareHome.objects.all()
+            else:
+                kwargs["queryset"] = CareHome.objects.none()
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
     def availability_status(self, obj):
         return obj.availability_status
 
@@ -69,18 +79,29 @@ class IncidentReportAdmin(admin.ModelAdmin):
     search_fields = ('service_user__full_name', 'location', 'staff__username')
     list_filter = ('carehome', 'incident_datetime')
 
+
 @admin.register(ABCForm)
 class ABCFormAdmin(admin.ModelAdmin):
     list_display = [
         'service_user',
         'date_of_birth',
         'staff',
-        'date_time',  # Changed from behaviour_started
+        'date_time',
         'created_by',
-        'created_at'
+        'created_at',
+        'updated_by_display'  # Custom method instead of direct field
     ]
     list_filter = ['date_time', 'created_by']
-    search_fields = ['service_user', 'staff']
+    search_fields = ['service_user__first_name', 'service_user__last_name', 'staff']
+
+    def updated_by_display(self, obj):
+        """Safe way to display updated_by if the field exists"""
+        try:
+            return obj.updated_by
+        except FieldError:
+            return "N/A"
+
+    updated_by_display.short_description = "Last Updated By"
 
 @admin.register(LatestLogEntry)
 class LatestLogEntryAdmin(admin.ModelAdmin):

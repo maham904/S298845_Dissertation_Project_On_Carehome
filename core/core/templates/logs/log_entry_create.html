@@ -1,40 +1,50 @@
+<!-- templates/logs/log_entry_create.html -->
 {% extends "core/base.html" %}
 {% load static %}
 
 {% block content %}
-
-{% if not log_entries %}
-<!-- STEP 1: SELECTION FORM -->
-<form method="POST" action="{% url 'create-log' %}">
-    {% csrf_token %}
-    <div class="form-group">
-        <label>Select Carehome</label>
-        <select name="carehome" required class="form-control">
-            {% for c in carehomes %}
-                <option value="{{ c.id }}">{{ c.name }}</option>
-            {% endfor %}
-        </select>
+<div class="card">
+    <div class="card-header">
+        <h4>Create New Daily Log</h4>
     </div>
+    <div class="card-body">
+        <form method="POST" action="{% url 'create-log' %}">
+            {% csrf_token %}
 
-    <div class="form-group">
-        <label>Select Service User</label>
-        <select name="service_user" required class="form-control">
-            {% for su in service_users %}
-                <option value="{{ su.id }}">{{ su.first_name }} {{ su.last_name }}</option>
-            {% endfor %}
-        </select>
+            <div class="mb-3">
+                <label class="form-label">Carehome</label>
+                <select name="carehome" class="form-select" required>
+                    <option value="">-- Select Carehome --</option>
+                    {% for c in carehomes %}
+                    <option value="{{ c.id }}">{{ c.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Service User</label>
+                <select name="service_user" class="form-select" required>
+                    <option value="">-- Select Service User --</option>
+                    {% for su in service_users %}
+                    <option value="{{ su.id }}">{{ su.first_name }} {{ su.last_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Shift</label>
+                <select name="shift" class="form-select" required>
+                    <option value="">-- Select Shift --</option>
+                    {% for shift in shifts %}
+                    <option value="{{ shift }}">{{ shift }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-plus me-2"></i> Start Log
+            </button>
+        </form>
     </div>
-
-    <div class="form-group">
-        <label>Select Shift</label>
-        <select name="shift" required class="form-control">
-            {% for shift in shifts %}
-                <option value="{{ shift }}">{{ shift }}</option>
-            {% endfor %}
-        </select>
-    </div>
-
-    <button type="submit" class="btn btn-primary">Start Log</button>
-</form>
-{% endif %}
+</div>
 {% endblock %}

@@ -162,14 +162,6 @@
                     <label>Describe exactly what the client did</label>
                     <textarea class="form-control" name="behaviour_description" required>{{ form.behaviour_description.value|default_if_none:'' }}</textarea>
                 </div>
-                <div class="form-group">
-                    <label>Duration of behavior</label>
-                    <input type="text" class="form-control" name="behaviour_duration" value="{{ form.behaviour_duration.value|default_if_none:'' }}" placeholder="e.g., 5 minutes">
-                </div>
-                <div class="form-group">
-                    <label>Intensity level (1-10)</label>
-                    <input type="number" class="form-control" name="behaviour_intensity" value="{{ form.behaviour_intensity.value|default_if_none:'' }}" min="1" max="10">
-                </div>
             </div>
         </div>
 
@@ -180,16 +172,8 @@
             </div>
             <div class="card-body">
                 <div class="form-group">
-                    <label>What happened immediately after the behavior?</label>
+                    <label>What happened after the behaviour took place? What did you do?</label>
                     <textarea class="form-control" name="consequence_immediate" required>{{ form.consequence_immediate.value|default_if_none:'' }}</textarea>
-                </div>
-                <div class="form-group">
-                    <label>What did staff do in response?</label>
-                    <textarea class="form-control" name="consequence_staff" required>{{ form.consequence_staff.value|default_if_none:'' }}</textarea>
-                </div>
-                <div class="form-group">
-                    <label>How did others react?</label>
-                    <textarea class="form-control" name="consequence_others">{{ form.consequence_others.value|default_if_none:'' }}</textarea>
                 </div>
             </div>
         </div>
@@ -201,16 +185,10 @@
             </div>
             <div class="card-body">
                 <div class="form-group">
-                    <label>What can we learn from this situation?</label>
+                    <label>What can we learn from this situation & take forward whilst supporting the client?
+Any other relevant information?
+</label>
                     <textarea class="form-control" name="reflection_learnings" required>{{ form.reflection_learnings.value|default_if_none:'' }}</textarea>
-                </div>
-                <div class="form-group">
-                    <label>What strategies could be used next time?</label>
-                    <textarea class="form-control" name="reflection_strategies" required>{{ form.reflection_strategies.value|default_if_none:'' }}</textarea>
-                </div>
-                <div class="form-group">
-                    <label>Additional notes or observations</label>
-                    <textarea class="form-control" name="reflection_notes">{{ form.reflection_notes.value|default_if_none:'' }}</textarea>
                 </div>
             </div>
         </div>

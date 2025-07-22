@@ -1,5 +1,6 @@
 import os
 
+from django.core.exceptions import ValidationError
 from django.template.loader import render_to_string
 from django.utils import timezone
 from datetime import timedelta
@@ -38,6 +39,15 @@ class CareHome(models.Model):
     night_shift_end = models.TimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    managers = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        related_name='managed_carehomes',
+        limit_choices_to={'role__in': ['manager', 'team_lead']},
+        blank=True
+    )
+
+    def get_staff_members(self):
+        return self.customuser_set.filter(role='staff')
 
     def save(self, *args, **kwargs):
         if self.pk:
@@ -57,9 +67,8 @@ class CareHome(models.Model):
         return self.name
 
 
-
 class ServiceUser(models.Model):
-    carehome = models.ForeignKey(CareHome, on_delete=models.CASCADE)
+    carehome = models.ForeignKey(CareHome, on_delete=models.CASCADE,related_name='service_users')
     image = models.ImageField(upload_to='service_users/', blank=True, null=True)
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
@@ -130,7 +139,14 @@ class ABCForm(models.Model):
     behaviour = models.TextField(blank=True)
     consequences = models.TextField(blank=True)
     reflection = models.TextField(blank=True)
-
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='updated_abc_forms',
+        verbose_name="Last Updated By"
+    )
     # File and timestamps
     pdf_file = models.FileField(upload_to='abc_pdfs/', null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -154,18 +170,44 @@ class IncidentReport(models.Model):
     user_response = models.TextField()
 
     contacted_manager = models.BooleanField(default=False)
+    manager_contact_date = models.DateTimeField(null=True, blank=True)
+    manager_contact_comment = models.TextField(blank=True)
+
     contacted_police = models.BooleanField(default=False)
+    police_contact_date = models.DateTimeField(null=True, blank=True)
+    police_contact_comment = models.TextField(blank=True)
+
     contacted_paramedics = models.BooleanField(default=False)
+    paramedics_contact_date = models.DateTimeField(null=True, blank=True)
+    paramedics_contact_comment = models.TextField(blank=True)
+
+    contacted_other = models.BooleanField(default=False)
+    other_contact_name = models.CharField(max_length=255, blank=True)
+    other_contact_date = models.DateTimeField(null=True, blank=True)
+    other_contact_comment = models.TextField(blank=True)
 
     prn_administered = models.BooleanField(default=False)
     prn_by_whom = models.CharField(max_length=255, blank=True)
     injuries_detail = models.TextField(blank=True)
     property_damage = models.TextField(blank=True)
+    image1 = models.ImageField(upload_to='incident_images/', blank=True, null=True)
+    image2 = models.ImageField(upload_to='incident_images/', blank=True, null=True)
+    image3 = models.ImageField(upload_to='incident_images/', blank=True, null=True)
 
     # ✅ PDF file field
     pdf_file = models.FileField(upload_to='incident_reports/', blank=True, null=True)
 
     # created_at = models.DateTimeField(auto_now_add=True)
+    def get_images(self):
+        """Return a list of non-empty images"""
+        images = []
+        if self.image1:
+            images.append(self.image1)
+        if self.image2:
+            images.append(self.image2)
+        if self.image3:
+            images.append(self.image3)
+        return images
 
     def __str__(self):
         return f"Incident - {self.service_user} - {self.incident_datetime.strftime('%Y-%m-%d %H:%M')}"
@@ -248,9 +290,17 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     def get_short_name(self):
         return self.first_name
 
+    def get_managed_carehomes(self):
+        if self.role == 'team_lead':
+            return CareHome.objects.filter(id=self.carehome_id) if self.carehome else CareHome.objects.none()
+        elif self.role == 'manager':
+            return CareHome.objects.all()
+        return CareHome.objects.none()
+
     class Meta:
         verbose_name = 'User'
         verbose_name_plural = 'Users'
+
 
 class Mapping(models.Model):
     staff = models.ForeignKey(CustomUser, on_delete=models.CASCADE, limit_choices_to={'role': 'staff'})
@@ -261,6 +311,7 @@ class Mapping(models.Model):
 
     def __str__(self):
         return f"Mapping for {self.staff.get_full_name()}"
+
 
 class LogEntry(models.Model):
     user = models.ForeignKey(
@@ -343,6 +394,18 @@ class LatestLogEntry(models.Model):
 
     def save(self, *args, **kwargs):
         # Auto-set day of week if not provided
+        if not self.pk:  # Only for new entries, not updates
+            existing_log = LatestLogEntry.objects.filter(
+                user=self.user,
+                carehome=self.carehome,
+                service_user=self.service_user,
+                date=self.date,
+                shift=self.shift
+            ).exists()
+
+            if existing_log:
+                raise ValidationError(
+                    "A log already exists for this user, carehome, service user, date and shift combination.")
         if not self.day_of_week and self.date:
             self.day_of_week = self.date.strftime('%A')
 
@@ -450,4 +513,3 @@ class LatestLogEntry(models.Model):
             models.Index(fields=['carehome', 'date']),
             models.Index(fields=['service_user', 'date']),
         ]
-

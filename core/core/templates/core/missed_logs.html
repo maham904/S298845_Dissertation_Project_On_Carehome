@@ -1,55 +1,47 @@
 {% extends "core/base.html" %}
-{% load static %}
 
 {% block content %}
 <div class="d-sm-flex align-items-center justify-content-between mb-4">
-    <h1 class="h4 mb-0 text-gray-800">Missed Log Entries</h1>
+    <h1 class="h4 mb-0 text-gray-800">
+        Missed Shift Entries
+        <small class="text-muted">({{ date_range }})</small>
+    </h1>
+    <div class="badge badge-danger">{{ total_missed }} missed shifts</div>
 </div>
 
-{% if missed_logs %}
-    {% regroup missed_logs by service_user as grouped_logs %}
-
-    {% for group in grouped_logs %}
-        <div class="card shadow mb-4">
-            <div class="card-header py-3 d-flex align-items-center justify-content-between">
-                <h6 class="m-0 font-weight-bold text-primary">
-                    Service User: {{ group.grouper.first_name }} {{ group.grouper.last_name }}
-                </h6>
-            </div>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-bordered mb-0" width="100%">
-                        <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>Carehome</th>
-                                <th>Date</th>
-                                <th>Shift</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for log in group.list|slice:":2" %}
-                                <tr>
-                                    <td>{{ forloop.counter }}</td>
-                                    <td>{{ log.carehome.name }}</td>
-                                    <td>{{ log.date }}</td>
-                                    <td>{{ log.shift }}</td>
-                                    <td>
-                                        <span class="badge badge-danger">Missed</span>
-                                    </td>
-                                </tr>
-                            {% empty %}
-                                <tr><td colspan="5" class="text-center">No logs found.</td></tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+{% if missing_entries %}
+<div class="card shadow">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover mb-0">
+                <thead class="thead-light">
+                    <tr>
+                        <th>Date</th>
+                        <th>Carehome</th>
+                        <th>Service User</th>
+                        <th>Shift</th>
+                        <th>Shift Time</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for entry in missing_entries %}
+                    <tr>
+                        <td>{{ entry.date|date:"M d, Y" }}</td>
+                        <td>{{ entry.carehome.name }}</td>
+                        <td>{{ entry.service_user.first_name }} {{ entry.service_user.last_name }}</td>
+                        <td>{{ entry.shift|title }}</td>
+                        <td>{{ entry.shift_time }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
-    {% endfor %}
-
+    </div>
+</div>
 {% else %}
-    <div class="alert alert-info">No missed log entries found.</div>
+<div class="alert alert-success">
+    <i class="fas fa-check-circle"></i>
+    No missed shift entries found in the last 6 months!
+</div>
 {% endif %}
 {% endblock %}

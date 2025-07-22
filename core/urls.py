@@ -11,7 +11,7 @@ urlpatterns = ([
                    path('dashboard/', views.dashboard, name='admin-dashboard'),
                    path('logout/', views.logout_view, name='logout'),
                    path('active-users/', views.active_users_view, name='active-users'),
-                   path('missed-logs/', views.missed_logs_view, name='missed-logs'),
+                   path('missed-logs/', views.missed_shifts_view, name='missed-logs'),
                    path('staff/create/', views.create_staff, name='create-staff'),
 
                    # Carehomes URLs
