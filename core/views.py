@@ -133,18 +133,38 @@ def abc_form_list(request):
 
 
 @login_required
-def view_abc_form(request, form_id):
-    """View form with permission check"""
-    instance = get_object_or_404(ABCForm, id=form_id)
+def view_abc_form(request, form_id):  # Changed from pk to form_id
+    form_instance = get_object_or_404(ABCForm, pk=form_id)
 
-    # Permission check
+    # Check permissions
     if not (request.user.is_superuser or
-            request.user == instance.created_by or
-            request.user.groups.filter(name='Supervisors').exists() and
-            instance.service_user in request.user.managed_clients.all()):
-        return HttpResponse("Not authorized", status=403)
+            request.user == form_instance.created_by or
+            (request.user.groups.filter(name='Supervisors').exists() and
+             form_instance.service_user in request.user.managed_clients.all())):
+        return HttpResponseForbidden("You don't have permission to view this form")
 
-    return render(request, 'view_abc_form.html', {'form': instance})
+    context = {
+        'data': {
+            'id': form_instance.id,
+            'service_user': form_instance.service_user,
+            'date_of_birth': form_instance.date_of_birth,
+            'staff': form_instance.staff,
+            'date_time': form_instance.date_time,
+            'target_behaviours': form_instance.target_behaviours,
+            'setting': form_instance.setting,
+            'antecedent': form_instance.antecedent,
+            'behaviour': form_instance.behaviour,
+            'consequences': form_instance.consequences,
+            'reflection': form_instance.reflection,
+            'pdf_file': form_instance.pdf_file
+        },
+        'can_edit': (
+                request.user.is_superuser or
+                request.user.groups.filter(name='Supervisors').exists() or
+                request.user == form_instance.created_by
+        )
+    }
+    return render(request, 'core/abc_form_detail_template.html', context)
 
 
 @login_required
@@ -681,24 +701,6 @@ def fetch_service_users(request):
     return JsonResponse({'error': 'Invalid method'}, status=400)
 
 
-def staff_mapping_view(request):
-    mappings = Mapping.objects.all()
-    form = MappingForm()
-
-    if request.method == "POST":
-        form = MappingForm(request.POST)
-        if form.is_valid():
-            form.save()
-            return redirect('staff-mapping')  # replace with your URL name
-
-    context = {
-        'form': form,
-        'mappings': mappings,
-        'show_form': request.method == "POST" or 'show_form' in request.GET
-    }
-    return render(request, 'core/staff_mapping.html', context)
-
-
 def create_mapping(request):
     if request.method == 'POST':
         form = MappingForm(request.POST)
@@ -709,6 +711,42 @@ def create_mapping(request):
         form = MappingForm()
     return render(request, 'core/staff_mapping.html', {'form': form})
 
+
+def staff_mapping_view(request):
+    mappings = Mapping.objects.all().prefetch_related('carehomes', 'service_users')
+    form = MappingForm()
+    mapping_id = request.GET.get('edit', None)
+    mapping_instance = None
+
+    if mapping_id:
+        mapping_instance = get_object_or_404(Mapping, id=mapping_id)
+
+    if request.method == "POST":
+        if mapping_instance:
+            form = MappingForm(request.POST, instance=mapping_instance)
+        else:
+            form = MappingForm(request.POST)
+
+        if form.is_valid():
+            form.save()
+            return redirect('staff-mapping')
+
+    context = {
+        'form': form,
+        'mappings': mappings,
+        'show_form': request.method == "POST" or 'show_form' in request.GET or mapping_id,
+        'editing': mapping_instance is not None,
+        'mapping_instance': mapping_instance
+    }
+    return render(request, 'core/staff_mapping.html', context)
+
+
+def delete_mapping(request, pk):
+    mapping = get_object_or_404(Mapping, id=pk)
+    if request.method == 'POST':
+        mapping.delete()
+        return redirect('staff-mapping')
+    return redirect('staff-mapping')
 
 def load_service_users(request):
     carehome_ids = request.GET.getlist('carehome_ids[]')

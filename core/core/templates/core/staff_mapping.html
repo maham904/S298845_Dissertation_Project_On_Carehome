@@ -12,16 +12,14 @@
     {% if show_form %}
     <div class="card shadow-sm mb-4">
         <div class="card-header">
-            <strong>New Mapping</strong>
+            <strong>{% if editing %}Edit{% else %}New{% endif %} Mapping</strong>
         </div>
         <div class="card-body">
             <form method="post" action="">
                 {% csrf_token %}
-
-                <div class="form-group mb-3">
-                    <label for="id_carehomes">Care Home</label>
-                    {{ form.carehomes }}
-                </div>
+                {% if editing %}
+                    <input type="hidden" name="mapping_id" value="{{ mapping_instance.id }}">
+                {% endif %}
 
                 <div class="form-group mb-3">
                     <label for="id_staff">Staff</label>
@@ -29,14 +27,25 @@
                 </div>
 
                 <div class="form-group mb-3">
-                    <label for="id_service_users">Service User</label>
-                    <select name="service_users" id="id_service_users" class="form-control" required>
-                        <option value="">Select Care Home first</option>
+                    <label for="id_carehomes">Care Homes</label>
+                    {{ form.carehomes }}
+                </div>
+
+                <div class="form-group mb-3">
+                    <label for="id_service_users">Service Users</label>
+                    <select name="service_users" id="id_service_users" class="form-control" multiple required>
+                        {% if editing %}
+                            {% for su in mapping_instance.service_users.all %}
+                                <option value="{{ su.id }}" selected>{{ su.get_formatted_name }} ({{ su.carehome.name }})</option>
+                            {% endfor %}
+                        {% else %}
+                            <option value="">Select Care Home(s) first</option>
+                        {% endif %}
                     </select>
                 </div>
 
                 <div class="mt-3">
-                    <button type="submit" class="btn btn-success">Save</button>
+                    <button type="submit" class="btn btn-success">{% if editing %}Update{% else %}Save{% endif %}</button>
                     <a href="{% url 'staff-mapping' %}" class="btn btn-secondary">Cancel</a>
                 </div>
             </form>
@@ -57,18 +66,38 @@
                         <th>Staff Name</th>
                         <th>Mapped To</th>
                         <th>Date</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for mapping in mappings %}
-                    <tr>
-                        <td>{{ mapping.id }}</td>
-                        <td>{{ mapping.staff }}</td>
-                        <td>{{ mapping.assigned_to }}</td>
-                        <td>{{ mapping.created_at }}</td>
-                    </tr>
+            {% for mapping in mappings %}
+            <tr>
+                <td>{{ mapping.id }}</td>
+                <td>{{ mapping.staff.get_full_name }}</td>
+                <td>
+                    {% for carehome in mapping.carehomes.all %}
+                        {{ carehome.name }}
+                        ({% for su in mapping.service_users.all %}
+                            {% if su.carehome == carehome %}
+                                {{ su.get_formatted_name }}{% if not forloop.last %}, {% endif %}
+                            {% endif %}
+                        {% empty %}
+                            No service users
+                        {% endfor %})
+                        {% if not forloop.last %}<br>{% endif %}
                     {% endfor %}
-                </tbody>
+                </td>
+                <td>{{ mapping.created_at|date:"d M Y" }}</td>
+                <td>
+                    <a href="?edit={{ mapping.id }}" class="btn btn-sm btn-primary">Edit</a>
+                    <form method="post" action="{% url 'delete-mapping' mapping.id %}" style="display:inline;">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure?')">Delete</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
             </table>
         </div>
     </div>
@@ -80,54 +109,55 @@
 
 {% block scripts %}
 <script>
-    $(document).ready(function() {
+$(document).ready(function() {
     // Initialize Select2
     $('#id_carehomes').select2({
-        placeholder: "Select a care home",
+        placeholder: "Select care home(s)",
         allowClear: true,
         width: '100%'
     });
 
     $('#id_service_users').select2({
-        placeholder: "First select a care home",
+        placeholder: "First select care home(s)",
         allowClear: true,
         width: '100%'
     });
 
     // Handle carehome selection change
     $('#id_carehomes').on('change', function() {
-        const selected = $(this).select2('data');
-        const carehomeId = selected.length > 0 ? selected[0].id : null;
+        const selectedCarehomes = $(this).val();
         const $serviceUsers = $('#id_service_users');
 
         $serviceUsers.empty().prop('disabled', true).trigger('change');
 
-        if (carehomeId) {
+        if (selectedCarehomes && selectedCarehomes.length > 0) {
             $serviceUsers.select2({
                 placeholder: "Loading service users...",
                 allowClear: false
             });
 
-            // Ensure we only send one ID
+            // Prepare carehome IDs - send as comma-separated string
+            const carehomeIds = selectedCarehomes.join(',');
+
             $.ajax({
                 url: '{% url "get-service-users-by-carehome" %}',
-                data: { 'carehome_id': carehomeId },  // Single ID only
+                data: { 'carehome_id': carehomeIds },
                 dataType: 'json',
                 success: function(response) {
                     $serviceUsers.empty();
-                    if (response.service_users?.length) {
+                    if (response.service_users && response.service_users.length) {
                         $.each(response.service_users, function(i, user) {
                             $serviceUsers.append(
                                 $('<option>', {
                                     value: user.id,
-                                    text: user.name
+                                    text: user.name + (user.carehome ? ' (' + user.carehome.name + ')' : '')
                                 })
                             );
                         });
                         $serviceUsers.prop('disabled', false).trigger('change');
                     } else {
                         $serviceUsers.select2({
-                            placeholder: "No service users found",
+                            placeholder: "No service users found for selected care homes",
                             allowClear: false
                         });
                     }
@@ -142,11 +172,16 @@
             });
         } else {
             $serviceUsers.select2({
-                placeholder: "First select a care home",
+                placeholder: "First select care home(s)",
                 allowClear: true
             }).prop('disabled', false);
         }
     });
+
+    // If editing, trigger carehomes change to load service users
+    {% if editing %}
+        $('#id_carehomes').trigger('change');
+    {% endif %}
 });
 </script>
 {% endblock %}

@@ -306,11 +306,21 @@ class Mapping(models.Model):
     staff = models.ForeignKey(CustomUser, on_delete=models.CASCADE, limit_choices_to={'role': 'staff'})
     carehomes = models.ManyToManyField(CareHome)
     service_users = models.ManyToManyField(ServiceUser)
-
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"Mapping for {self.staff.get_full_name()}"
+
+    def get_mapped_details(self):
+        details = []
+        for carehome in self.carehomes.all():
+            service_users = self.service_users.filter(carehome=carehome)
+            if service_users.exists():
+                su_names = ", ".join([su.first_name for su in service_users])
+                details.append(f"{carehome.name} ({su_names})")
+            else:
+                details.append(f"{carehome.name} (No service users)")
+        return "; ".join(details)
 
 
 class LogEntry(models.Model):

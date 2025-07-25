@@ -4,7 +4,8 @@ from django.urls import path
 
 from carehome_project import settings
 from . import views
-from .views import create_log_view, log_entry_form, save_log_entry, lock_log_entries, staff_latest_logs_view
+from .views import create_log_view, log_entry_form, save_log_entry, lock_log_entries, staff_latest_logs_view, \
+    staff_mapping_view, delete_mapping
 
 urlpatterns = ([
                    path('', views.login_view, name='login'),
@@ -55,6 +56,8 @@ urlpatterns = ([
                    path('get-staff-by-carehome/', views.get_staff_by_carehome, name='get-staff-by-carehome'),
                    path('get-service-users-by-carehome/', views.get_service_users_by_carehome,
                         name='get-service-users-by-carehome'),
+                   path('staff-mapping/', staff_mapping_view, name='staff-mapping'),
+                   path('delete-mapping/<int:pk>/', delete_mapping, name='delete-mapping'),
 
                ]
                + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT))
