@@ -19,7 +19,7 @@ body {
 table {
     width: 100%;
     border-collapse: collapse;
-    margin: 5px 0;
+    margin: 0;
     table-layout: fixed;
     word-wrap: break-word;
 }
@@ -63,6 +63,7 @@ th {
 
 <div class="table-container">
     <table>
+        <!-- Header Section -->
         <tr>
             <td colspan="4" class="header-row">Service User's Daily Recording Sheet</td>
         </tr>
@@ -73,6 +74,8 @@ th {
                 <strong>Staff:</strong> {{ latest_log.staff_name }}
             </td>
         </tr>
+
+        <!-- Date/Shift Info -->
         <tr class="header-row">
             <td>Date</td>
             <td>Day</td>
@@ -85,29 +88,29 @@ th {
             <td>{{ latest_log.staff_initials }}</td>
             <td>{{ latest_log.get_shift_display }}</td>
         </tr>
-    </table>
 
-    <table>
-        <thead>
-            <tr class="header-row">
-                <th class="time-cell">Time</th>
-                <th class="details-cell">Details</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for entry in log_entries %}
-            <tr>
-                <td class="time-cell">{{ entry.time_slot|time:"H:i" }}</td>
-                <td class="details-cell">
-                    <div class="log-entry-content">{{ entry.content|linebreaksbr }}</div>
-                </td>
-            </tr>
-            {% empty %}
-            <tr>
-                <td colspan="2" style="text-align: center;">No log entries found for this shift.</td>
-            </tr>
-            {% endfor %}
-        </tbody>
+        <!-- Time Entries Header -->
+        <tr class="header-row">
+            <th colspan="4" style="text-align: center;">Daily Log Entries</th>
+        </tr>
+        <tr class="header-row">
+            <th class="time-cell">Time</th>
+            <th class="details-cell" colspan="3">Details</th>
+        </tr>
+
+        <!-- Log Entries -->
+        {% for entry in log_entries %}
+        <tr>
+            <td class="time-cell">{{ entry.time_slot|time:"H:i" }}</td>
+            <td class="details-cell" colspan="3">
+                <div class="log-entry-content">{{ entry.content|linebreaksbr }}</div>
+            </td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="4" style="text-align: center;">No log entries found for this shift.</td>
+        </tr>
+        {% endfor %}
     </table>
 </div>
 
