@@ -46,6 +46,17 @@ class CareHome(models.Model):
         blank=True
     )
 
+    @property
+    def morning_shift_time(self):
+        if self.morning_shift_start and self.morning_shift_end:
+            return f"{self.morning_shift_start.strftime('%H:%M')}-{self.morning_shift_end.strftime('%H:%M')}"
+        return "Not set"
+
+    @property
+    def night_shift_time(self):
+        if self.night_shift_start and self.night_shift_end:
+            return f"{self.night_shift_start.strftime('%H:%M')}-{self.night_shift_end.strftime('%H:%M')}"
+        return "Not set"
     def get_staff_members(self):
         return self.customuser_set.filter(role='staff')
 
@@ -62,6 +73,80 @@ class CareHome(models.Model):
     def delete(self, *args, **kwargs):
         self.picture.delete(save=False)
         super().delete(*args, **kwargs)
+
+    def check_missed_logs(self, date=None):
+        """
+        Check for service users who don't have shift logs for the given date
+        Only checks morning and night shifts
+        """
+        if date is None:
+            date = timezone.now().date()
+
+        missed_logs = []
+
+        for service_user in self.service_users.all():
+            # Check morning shift
+            if not LatestLogEntry.objects.filter(
+                    carehome=self,
+                    service_user=service_user,
+                    date=date,
+                    shift='morning'
+            ).exists():
+                missed_logs.append(
+                    MissedLog(
+                        carehome=self,
+                        service_user=service_user,
+                        date=date,
+                        shift='morning'
+                    )
+                )
+
+            # Check night shift (not afternoon!)
+            if not LatestLogEntry.objects.filter(
+                    carehome=self,
+                    service_user=service_user,
+                    date=date,
+                    shift='night'
+            ).exists():
+                missed_logs.append(
+                    MissedLog(
+                        carehome=self,
+                        service_user=service_user,
+                        date=date,
+                        shift='night'
+                    )
+                )
+
+        # Bulk create missed logs, ignoring duplicates
+        MissedLog.objects.bulk_create(
+            missed_logs,
+            ignore_conflicts=True
+        )
+
+        return MissedLog.objects.filter(
+            carehome=self,
+            date=date,
+            resolved_at__isnull=True
+        )
+
+    def get_shift_times(self, shift_type):
+        """Returns formatted shift time string"""
+        if shift_type == 'morning':
+            return f"{self.morning_shift_start.strftime('%H:%M')}-{self.morning_shift_end.strftime('%H:%M')}"
+        elif shift_type == 'night':
+            return f"{self.night_shift_start.strftime('%H:%M')}-{self.night_shift_end.strftime('%H:%M')}"
+        return "Shift not defined"
+
+    def resolve_missed_logs(self, service_user, date):
+        """
+        Mark all missed logs for a service user on a given date as resolved
+        """
+        MissedLog.objects.filter(
+            carehome=self,
+            service_user=service_user,
+            date=date,
+            resolved_at__isnull=True
+        ).update(resolved_at=timezone.now())
 
     def __str__(self):
         return self.name
@@ -360,7 +445,6 @@ class LatestLogEntry(models.Model):
 
     SHIFT_CHOICES = [
         ('morning', 'Morning'),
-        ('afternoon', 'Afternoon'),
         ('night', 'Night'),
     ]
 
@@ -523,3 +607,25 @@ class LatestLogEntry(models.Model):
             models.Index(fields=['carehome', 'date']),
             models.Index(fields=['service_user', 'date']),
         ]
+
+
+class MissedLog(models.Model):
+    SHIFT_CHOICES = [
+        ('morning', 'Morning'),
+        ('night', 'Night'),
+    ]
+
+    carehome = models.ForeignKey(CareHome, on_delete=models.CASCADE)
+    service_user = models.ForeignKey(ServiceUser, on_delete=models.CASCADE)
+    date = models.DateField()
+    shift = models.CharField(max_length=20, choices=SHIFT_CHOICES)
+    is_notified = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.date} - {self.carehome} - {self.get_shift_display()} - {self.service_user}"
+
+    class Meta:
+        verbose_name = "Missed Shift"
+        verbose_name_plural = "Missed Shifts"

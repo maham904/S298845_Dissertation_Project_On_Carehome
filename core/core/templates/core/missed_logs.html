@@ -1,4 +1,4 @@
-{% extends "core/base.html" %}
+ {% extends "core/base.html" %}
 
 {% block content %}
 <div class="d-sm-flex align-items-center justify-content-between mb-4">
@@ -28,9 +28,15 @@
                     <tr>
                         <td>{{ entry.date|date:"M d, Y" }}</td>
                         <td>{{ entry.carehome.name }}</td>
-                        <td>{{ entry.service_user.first_name }} {{ entry.service_user.last_name }}</td>
-                        <td>{{ entry.shift|title }}</td>
-                        <td>{{ entry.shift_time }}</td>
+                        <td>{{ entry.service_user.get_formatted_name }}</td>
+                        <td>{{ entry.get_shift_display }}</td>
+                        <td>
+                            {% if entry.shift == 'morning' %}
+                                {{ entry.carehome.morning_shift_time }}
+                            {% else %}
+                                {{ entry.carehome.night_shift_time }}
+                            {% endif %}
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>

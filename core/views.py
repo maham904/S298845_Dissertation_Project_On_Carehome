@@ -21,7 +21,7 @@ from weasyprint.text.fonts import FontConfiguration
 
 from carehome_project import settings
 from core.utils import get_or_create_latest_log, get_filtered_queryset, generate_shift_times
-from .models import CustomUser, LatestLogEntry, Mapping
+from .models import CustomUser, LatestLogEntry, Mapping, MissedLog
 from .forms import ServiceUserForm, StaffCreationForm, CareHomeForm, MappingForm
 from io import BytesIO
 from django.template.loader import render_to_string
@@ -399,25 +399,34 @@ def dashboard(request):
         return render(request, "core/dashboard.html", context)
 
     elif user.role == CustomUser.TEAM_LEAD:
-        carehome = user.carehome
-        staff_users = CustomUser.objects.filter(role='staff', carehome=carehome)
-        latest_logs_qs = LatestLogEntry.objects.filter(user__in=staff_users)
-
+        # carehome = user.carehome
+        # staff_users = CustomUser.objects.filter(role='staff', carehome=carehome)
+        # latest_logs_qs = LatestLogEntry.objects.filter(user__in=staff_users)
+        #
+        # context = {
+        #     "active_users_count": staff_users.filter(is_active=True).count(),
+        #     "incident_reports_count": IncidentReport.objects.filter(carehome=carehome).count(),
+        #     "abc_forms_count": ABCForm.objects.filter(service_user__carehome=carehome).count(),
+        #     "latest_logs_count": latest_logs_qs.count(),
+        #     "missed_logs_count": LogEntry.objects.filter(
+        #         user__in=staff_users,
+        #         is_locked=False,
+        #         content="",
+        #         date__lt=timezone.localdate()
+        #     ).count(),
+        #     "recent_carehomes": CareHome.objects.filter(id=carehome.id),
+        #     "can_add_carehome": False,
+        # }
+        # return render(request, "core/dashboard.html", context)
         context = {
-            "active_users_count": staff_users.filter(is_active=True).count(),
-            "incident_reports_count": IncidentReport.objects.filter(carehome=carehome).count(),
-            "abc_forms_count": ABCForm.objects.filter(service_user__carehome=carehome).count(),
-            "latest_logs_count": latest_logs_qs.count(),
-            "missed_logs_count": LogEntry.objects.filter(
-                user__in=staff_users,
-                is_locked=False,
-                content="",
-                date__lt=timezone.localdate()
-            ).count(),
-            "recent_carehomes": CareHome.objects.filter(id=carehome.id),
-            "can_add_carehome": False,
+            "incident_reports_count": IncidentReport.objects.filter(staff=user).count(),
+            "abc_forms_count": ABCForm.objects.filter(created_by=user).count(),
+            "latest_logs_count": LatestLogEntry.objects.filter(user=user).count(),
+            "missed_logs_count": LogEntry.objects.filter(user=user, is_locked=False, content="",
+                                                         date__lt=timezone.localdate()).count(),
         }
-        return render(request, "core/dashboard.html", context)
+        return render(request, "core/staff_dashboard.html", context)
+
 
 
     elif user.role == CustomUser.STAFF:
@@ -534,6 +543,19 @@ def create_carehome(request):
             api_valid = validate_postcode_with_api(postcode)
 
             if api_valid:
+                # Calculate shift times before saving
+                morning_start = form.cleaned_data['morning_shift_start']
+                if morning_start:
+                    # Calculate 12-hour shifts
+                    morning_end = (datetime.combine(date.today(), morning_start) + timedelta(hours=12)).time()
+                    night_start = morning_end
+                    night_end = (datetime.combine(date.today(), night_start) + timedelta(hours=12)).time()
+
+                    # Update form data with calculated times
+                    form.instance.morning_shift_end = morning_end
+                    form.instance.night_shift_start = night_start
+                    form.instance.night_shift_end = night_end
+
                 carehome = form.save()
                 messages.success(request, f'Carehome "{carehome.name}" created successfully!')
                 return redirect('carehomes-dashboard')
@@ -552,7 +574,19 @@ def edit_carehome(request, id):
     if request.method == 'POST':
         form = CareHomeForm(request.POST, request.FILES, instance=carehome)
         if form.is_valid():
+            # Recalculate shift times if morning start changed
+            if 'morning_shift_start' in form.changed_data:
+                morning_start = form.cleaned_data['morning_shift_start']
+                morning_end = (datetime.combine(date.today(), morning_start) + timedelta(hours=12)).time()
+                night_start = morning_end
+                night_end = (datetime.combine(date.today(), night_start) + timedelta(hours=12)).time()
+
+                form.instance.morning_shift_end = morning_end
+                form.instance.night_shift_start = night_start
+                form.instance.night_shift_end = night_end
+
             form.save()
+            messages.success(request, f'Carehome "{carehome.name}" updated successfully!')
             return redirect('carehomes-dashboard')
     else:
         form = CareHomeForm(instance=carehome)
@@ -811,21 +845,40 @@ def log_detail_view(request, pk):
     return render(request, 'logs/log_detail.html', context)
 
 
-# views.py
 @login_required
 def create_log_view(request):
-    mapping = Mapping.objects.filter(staff=request.user).first()
-    if not mapping:
-        return render(request, 'error.html', {'message': 'No mappings found for your account.'})
+    try:
+        mapping = Mapping.objects.get(staff=request.user)
+    except Mapping.DoesNotExist:
+        messages.error(request,
+                       "Your account is not mapped to any carehomes or service users. Please contact your administrator.")
+        return redirect('admin-dashboard')  # Or wherever makes sense in your app
 
     if request.method == "POST":
         # Get form data
-        carehome = get_object_or_404(CareHome, id=request.POST.get("carehome"))
-        service_user = get_object_or_404(ServiceUser, id=request.POST.get("service_user"))
+        carehome_id = request.POST.get("carehome")
+        service_user_id = request.POST.get("service_user")
+
+        if not carehome_id or not service_user_id:
+            messages.error(request, "Please select both a carehome and service user")
+            return redirect('create_log_view')
+
+        try:
+            carehome = mapping.carehomes.get(id=carehome_id)
+            service_user = mapping.service_users.get(id=service_user_id)
+        except (CareHome.DoesNotExist, ServiceUser.DoesNotExist):
+            messages.error(request,
+                           "Invalid selection - you can only create logs for mapped carehomes and service users")
+            return redirect('create_log_view')
+
         shift = request.POST.get("shift", "").lower()
+        if shift not in ['morning', 'night']:
+            messages.error(request, "Please select a valid shift")
+            return redirect('create_log_view')
+
         today = timezone.localdate()
 
-        # Check if log already exists for this exact combination
+        # Check if log already exists
         existing_log = LatestLogEntry.objects.filter(
             user=request.user,
             carehome=carehome,
@@ -835,27 +888,28 @@ def create_log_view(request):
         ).first()
 
         if existing_log:
-            # Redirect to view mode if log exists
+            messages.info(request, "You've already created a log for this shift today")
             return redirect('log_detail_view', pk=existing_log.id)
-        else:
-            # Create new log and go to entry form
-            new_log = LatestLogEntry.objects.create(
-                user=request.user,
-                carehome=carehome,
-                service_user=service_user,
-                shift=shift,
-                date=today,
-                status='incomplete'
-            )
-            return redirect('log-entry-form', latest_log_id=new_log.id)
+
+        # Create new log
+        new_log = LatestLogEntry.objects.create(
+            user=request.user,
+            carehome=carehome,
+            service_user=service_user,
+            shift=shift,
+            date=today,
+            status='incomplete'
+        )
+        messages.success(request, "New log created successfully")
+        return redirect('log-entry-form', latest_log_id=new_log.id)
 
     # GET request - show selection form
     return render(request, 'logs/log_entry_create.html', {
         "carehomes": mapping.carehomes.all(),
         "service_users": mapping.service_users.all(),
-        "shifts": ['Morning', 'Night']
+        "shifts": ['Morning', 'Night'],  # Display names
+        "shift_values": ['morning', 'night']  # Actual values
     })
-
 
 def view_incident_report(request, pk):
     incident = get_object_or_404(IncidentReport, pk=pk)
@@ -1230,69 +1284,6 @@ def download_incident_pdf(request, form_id):
 
 
 @login_required
-def missed_shifts_view(request):
-    # Get carehomes based on role
-    if request.user.role == 'manager':
-        carehomes = CareHome.objects.all()
-    elif request.user.role == 'team_lead':
-        carehomes = request.user.managed_carehomes.all()
-    else:
-        carehomes = CareHome.objects.none()
-
-    today = timezone.localdate()
-    date_from = today - timedelta(days=180)  # Last 6 months
-    missing_entries = []
-
-    for carehome in carehomes:
-        # Get existing valid logs (complete or locked)
-        existing_logs = LatestLogEntry.objects.filter(
-            carehome=carehome,
-            date__gte=date_from,
-            date__lt=today
-        ).exclude(status='incomplete')
-
-        existing_combinations = {
-            (log.service_user_id, log.date, log.shift)
-            for log in existing_logs
-        }
-
-        # Check each date in range
-        current_date = date_from
-        while current_date < today:
-            # Morning shift check
-            if carehome.morning_shift_start and carehome.morning_shift_end:
-                for service_user in carehome.service_users.all():
-                    if (service_user.id, current_date, 'morning') not in existing_combinations:
-                        missing_entries.append({
-                            'date': current_date,
-                            'carehome': carehome,
-                            'service_user': service_user,
-                            'shift': 'Morning',
-                            'time': f"{carehome.morning_shift_start.strftime('%H:%M')}-{carehome.morning_shift_end.strftime('%H:%M')}"
-                        })
-
-            # Night shift check
-            if carehome.night_shift_start and carehome.night_shift_end:
-                for service_user in carehome.service_users.all():
-                    if (service_user.id, current_date, 'night') not in existing_combinations:
-                        missing_entries.append({
-                            'date': current_date,
-                            'carehome': carehome,
-                            'service_user': service_user,
-                            'shift': 'Night',
-                            'time': f"{carehome.night_shift_start.strftime('%H:%M')}-{carehome.night_shift_end.strftime('%H:%M')}"
-                        })
-
-            current_date += timedelta(days=1)
-
-    return render(request, 'core/missed_logs.html', {
-        'missing_entries': missing_entries,
-        'total_missed': len(missing_entries),
-        'date_range': f"{date_from.strftime('%b %d, %Y')} to {today.strftime('%b %d, %Y')}"
-    })
-
-
-@login_required
 def log_entry_form(request, latest_log_id):
     latest_log = get_object_or_404(LatestLogEntry, id=latest_log_id)
     shift = latest_log.shift.lower()
@@ -1364,3 +1355,38 @@ def generate_time_slots(start_time, end_time):
         current_time = (datetime.combine(date.today(), current_time) + timedelta(hours=1)).time()
 
     return time_slots
+
+
+@login_required
+def missed_shifts_view(request):
+    # Calculate date range (last 6 months)
+    today = timezone.localdate()
+    six_months_ago = today - timedelta(days=180)
+
+    # Debug: Print dates to verify
+    print(f"Date range: {six_months_ago} to {today}")
+
+    # Get all unresolved missed logs in this period
+    missed_logs = MissedLog.objects.filter(
+        date__gte=six_months_ago,
+        resolved_at__isnull=True
+    ).select_related('carehome', 'service_user').order_by('-date')
+
+    # Debug: Print count of found logs
+    print(f"Found {missed_logs.count()} missed logs")
+
+    context = {
+        'missing_entries': missed_logs,
+        'total_missed': missed_logs.count(),
+        'date_range': f"{six_months_ago.strftime('%b %d, %Y')} to {today.strftime('%b %d, %Y')}"
+    }
+
+    return render(request, 'core/missed_logs.html', context)
+
+
+def get_accessible_carehomes(user):
+    if user.role == 'manager':
+        return CareHome.objects.all()
+    elif user.role == 'team_lead':
+        return user.managed_carehomes.all()
+    return CareHome.objects.none()

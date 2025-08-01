@@ -50,8 +50,7 @@
                             <input type="file" class="custom-file-input" id="id_picture" name="picture"
                                    accept="image/*">
                             <label class="custom-file-label" for="id_picture">
-                                {% if form.instance.picture %}Current: {{ form.instance.picture.name }}{% else %}Choose
-                                file{% endif %}
+                                {% if form.instance.picture %}Current: {{ form.instance.picture.name }}{% else %}Choose file{% endif %}
                             </label>
                         </div>
                         {% if form.instance.picture %}
@@ -99,15 +98,10 @@
                         <input type="time" class="form-control" id="id_morning_shift_start"
                                name="morning_shift_start"
                                value="{{ form.instance.morning_shift_start|default:''|time:'H:i' }}" required>
-                        <small class="form-text text-muted">All other shift times will be calculated automatically (12-hour shifts)</small>
+                        <small class="form-text text-muted">Morning shift start time (12-hour shifts will be calculated automatically)</small>
                     </div>
 
-                    <!-- Hidden fields for other shift times -->
-                    <input type="hidden" id="id_morning_shift_end" name="morning_shift_end" value="{{ form.instance.morning_shift_end|default:''|time:'H:i' }}">
-                    <input type="hidden" id="id_night_shift_start" name="night_shift_start" value="{{ form.instance.night_shift_start|default:''|time:'H:i' }}">
-                    <input type="hidden" id="id_night_shift_end" name="night_shift_end" value="{{ form.instance.night_shift_end|default:''|time:'H:i' }}">
-
-                    <!-- Display calculated times (readonly) -->
+                    <!-- Display calculated times -->
                     <div class="card mb-3">
                         <div class="card-header">
                             <h6 class="m-0 font-weight-bold text-primary">Calculated Shift Times</h6>
@@ -116,25 +110,27 @@
                             <div class="row">
                                 <div class="col-md-6">
                                     <div class="form-group">
-                                        <label>Morning Shift End</label>
-                                        <input type="text" class="form-control" id="morning_shift_end_display" readonly>
+                                        <label>Morning Shift</label>
+                                        <input type="text" class="form-control" id="morning_shift_display" readonly>
                                     </div>
                                 </div>
                                 <div class="col-md-6">
                                     <div class="form-group">
-                                        <label>Night Shift Start</label>
-                                        <input type="text" class="form-control" id="night_shift_start_display" readonly>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="form-group">
-                                        <label>Night Shift End</label>
-                                        <input type="text" class="form-control" id="night_shift_end_display" readonly>
+                                        <label>Night Shift</label>
+                                        <input type="text" class="form-control" id="night_shift_display" readonly>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
+
+                    <!-- Hidden fields for calculated times -->
+                    <input type="hidden" id="id_morning_shift_end" name="morning_shift_end"
+                           value="{{ form.instance.morning_shift_end|default:''|time:'H:i' }}">
+                    <input type="hidden" id="id_night_shift_start" name="night_shift_start"
+                           value="{{ form.instance.night_shift_start|default:''|time:'H:i' }}">
+                    <input type="hidden" id="id_night_shift_end" name="night_shift_end"
+                           value="{{ form.instance.night_shift_end|default:''|time:'H:i' }}">
 
                     <!-- Buttons -->
                     <button type="submit" class="btn btn-primary" id="submit-btn" {% if not edit_mode %}disabled{% endif %}>
@@ -229,10 +225,10 @@
             if (morningEndHours >= 24) morningEndHours -= 24;
             const morningEnd = `${morningEndHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
 
-            // Night shift is same as morning end
+            // Night shift starts when morning ends
             const nightStart = morningEnd;
 
-            // Calculate night shift end (12 hours after night start)
+            // Night shift ends 12 hours after it starts
             let nightEndHours = morningEndHours + 12;
             if (nightEndHours >= 24) nightEndHours -= 24;
             const nightEnd = `${nightEndHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
@@ -249,15 +245,19 @@
             const times = calculateShiftTimes(startTime);
 
             if (times) {
-                // Update hidden fields that will be submitted
+                // Update hidden form fields
                 $('#id_morning_shift_end').val(times.morningEnd);
                 $('#id_night_shift_start').val(times.nightStart);
                 $('#id_night_shift_end').val(times.nightEnd);
 
                 // Update display fields
-                $('#morning_shift_end_display').val(times.morningEnd);
-                $('#night_shift_start_display').val(times.nightStart);
-                $('#night_shift_end_display').val(times.nightEnd);
+                $('#morning_shift_display').val(`${startTime} - ${times.morningEnd}`);
+                $('#night_shift_display').val(`${times.nightStart} - ${times.nightEnd}`);
+
+                // Enable submit button if in create mode
+                if (!{% if edit_mode %}true{% else %}false{% endif %}) {
+                    checkSubmitButton();
+                }
             }
         }
 
@@ -268,7 +268,8 @@
         function checkSubmitButton() {
             const nameValid = $('#id_name').val().trim().length > 0;
             const postcodeValid = $('#id_postcode').hasClass('is-valid');
-            $('#submit-btn').prop('disabled', !(nameValid && postcodeValid));
+            const shiftTimeValid = $('#id_morning_shift_start').val() !== '';
+            $('#submit-btn').prop('disabled', !(nameValid && postcodeValid && shiftTimeValid));
         }
 
         // Initialize shift times if editing

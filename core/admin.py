@@ -1,8 +1,12 @@
+from datetime import timedelta
+
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.core.exceptions import FieldError
+from django.utils import timezone
 
-from .models import CustomUser, CareHome, ServiceUser, LogEntry, Mapping, IncidentReport, ABCForm, LatestLogEntry
+from .models import CustomUser, CareHome, ServiceUser, LogEntry, Mapping, IncidentReport, ABCForm, LatestLogEntry, \
+    MissedLog
 
 
 @admin.register(CustomUser)
@@ -110,3 +114,27 @@ class LatestLogEntryAdmin(admin.ModelAdmin):
     search_fields = ('user__email', 'service_user__first_name', 'service_user__last_name')
     ordering = ('-created_at',)
 
+
+@admin.register(MissedLog)
+class MissedLogAdmin(admin.ModelAdmin):
+    list_display = ('date', 'carehome', 'service_user', 'shift_display', 'shift_time_display', 'is_notified', 'resolved_status')
+    list_filter = ('date', 'carehome', 'shift', 'is_notified')
+    search_fields = ('service_user__first_name', 'service_user__last_name', 'carehome__name')
+    date_hierarchy = 'date'
+
+    def shift_display(self, obj):
+        return obj.get_shift_display()
+    shift_display.short_description = 'Shift'
+
+    def shift_time_display(self, obj):
+        return obj.carehome.get_shift_times(obj.shift)
+    shift_time_display.short_description = 'Shift Time'
+
+    def resolved_status(self, obj):
+        return bool(obj.resolved_at)
+    resolved_status.boolean = True
+    resolved_status.short_description = 'Resolved?'
+
+    def get_queryset(self, request):
+        six_months_ago = timezone.now() - timedelta(days=180)
+        return super().get_queryset(request).filter(date__gte=six_months_ago)
