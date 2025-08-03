@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 set -o errexit
 
-# Install dependencies from requirements.txt
-pip install -r requirements.txt
+# Upgrade pip first
+pip install --upgrade pip
 
-# Collect static files
+# Install requirements with explicit resolver
+pip install --use-deprecated=legacy-resolver -r requirements.txt
+
+# Standard deployment steps
 python manage.py collectstatic --noinput
-
-# Apply database migrations
 python manage.py migrate
