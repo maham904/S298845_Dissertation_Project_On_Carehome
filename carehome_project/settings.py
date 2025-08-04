@@ -10,8 +10,21 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Security
 SECRET_KEY = "django-insecure-1oafo=nwgt9wp2d_6i@xyy6$i4mw7@_28&miy)hq#*yovo^=q0"
-DEBUG = True
-ALLOWED_HOSTS = []
+DEBUG = False
+# Add this near your other settings
+ALLOWED_HOSTS = [
+    'prestigecarehomemanagement.onrender.com',  # Your Render domain
+    'localhost',
+    '127.0.0.1',
+]
+
+# For Render-specific setup
+# settings.py
+CSRF_TRUSTED_ORIGINS = [
+    'https://prestigecarehomemanagement.onrender.com',
+]
+
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # Custom User Model
 AUTH_USER_MODEL = 'core.CustomUser'
