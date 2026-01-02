@@ -1,16 +1,29 @@
-from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
+from django.contrib.auth import get_user_model
 import os
 
 class Command(BaseCommand):
-    def handle(self, *args, **kwargs):
-        User = get_user_model()
-        username = os.environ.get("ADMIN_USER", "admin")
-        password = os.environ.get("ADMIN_PASSWORD", "Admin123!")
-        email = os.environ.get("ADMIN_EMAIL", "admin@example.com")
+    help = "Create an admin user from environment variables"
 
-        if not User.objects.filter(username=username).exists():
-            User.objects.create_superuser(username, email, password)
-            self.stdout.write("Superuser created")
-        else:
-            self.stdout.write("Superuser already exists")
+    def handle(self, *args, **options):
+        User = get_user_model()
+
+        username = os.environ.get("DJANGO_SUPERUSER_USERNAME")
+        email = os.environ.get("DJANGO_SUPERUSER_EMAIL")
+        password = os.environ.get("DJANGO_SUPERUSER_PASSWORD")
+
+        if not username or not password:
+            self.stdout.write("Admin env vars not set, skipping")
+            return
+
+        if User.objects.filter(username=username).exists():
+            self.stdout.write("Admin user already exists")
+            return
+
+        User.objects.create_superuser(
+            username=username,
+            email=email,
+            password=password
+        )
+
+        self.stdout.write("Admin user created successfully")
