@@ -9,16 +9,13 @@ SECRET_KEY = os.environ.get("SECRET_KEY", "django-insecure-1oafo=nwgt9wp2d_6i@xy
 DEBUG = os.environ.get("DEBUG", "False") == "True"
 
 ALLOWED_HOSTS = [
-    'prestigecarehomemanagement.onrender.com',  # Render URL
+    's298845-dissertation-project-on-carehome.onrender.com',  # Render URL
     'localhost',
-    '127.0.0.1',
-    'prestigesupportedliving.com', 'www.prestigesupportedliving.com'
+    '127.0.0.1'
 ]
 
 CSRF_TRUSTED_ORIGINS = [
-    'https://prestigecarehomemanagement.onrender.com',
-    'https://www.prestigesupportedliving.com',  # Bluehost frontend
-    'https://prestigesupportedliving.com',
+    'https://s298845-dissertation-project-on-carehome.onrender.com'
 ]
 
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
@@ -86,12 +83,10 @@ TEMPLATES = [
     },
 ]
 
-# DATABASE (You can switch to PostgreSQL later)
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
-    }
+    "default": dj_database_url.config(
+        default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}"
+    )
 }
 
 # PASSWORD VALIDATION
