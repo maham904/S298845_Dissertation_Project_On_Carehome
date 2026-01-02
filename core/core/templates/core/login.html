@@ -3,33 +3,138 @@
 {% load static %}
 
 {% block content %}
-<div class="container">
-    <div class="row justify-content-center">
-        <div class="col-xl-5 col-lg-6 col-md-8">
-            <div class="card shadow-lg my-5">
-                <div class="card-body p-0">
-                    <div class="p-5">
-                        <div class="text-center">
-                            <h1 class="h4 text-gray-900 mb-4">Welcome Back!</h1>
-                        </div>
-                        <form class="user" method="POST">
-                            {% csrf_token %}
-                            <div class="form-group">
-                                <input type="text" class="form-control form-control-user"
-                                    name="username" placeholder="Enter Username...">
-                            </div>
-                            <div class="form-group">
-                                <input type="password" class="form-control form-control-user"
-                                    name="password" placeholder="Password">
-                            </div>
-                            <button type="submit" class="btn btn-primary btn-user btn-block">
-                                Login
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        </div>
+<style>
+  .dch-auth {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: 2rem 1rem;
+    background:
+      radial-gradient(900px 500px at 15% 10%, rgba(99,102,241,.25), transparent 60%),
+      radial-gradient(900px 500px at 85% 20%, rgba(16,185,129,.22), transparent 55%),
+      linear-gradient(180deg, #0b1220 0%, #060a14 100%);
+  }
+
+  .dch-card {
+    width: 100%;
+    max-width: 440px;
+    border-radius: 22px;
+    background: rgba(255,255,255,.08);
+    border: 1px solid rgba(255,255,255,.14);
+    box-shadow: 0 20px 60px rgba(0,0,0,.45);
+    backdrop-filter: blur(14px);
+  }
+
+  .dch-header {
+    padding: 1.8rem;
+    text-align: center;
+    border-bottom: 1px solid rgba(255,255,255,.12);
+  }
+
+  .dch-logo {
+    width: 52px;
+    height: 52px;
+    margin: 0 auto 0.75rem;
+    border-radius: 16px;
+    display: grid;
+    place-items: center;
+    background: linear-gradient(135deg, #6366f1, #34d399);
+  }
+
+  .dch-title {
+    margin: 0;
+    color: #eef2ff;
+    font-weight: 800;
+    font-size: 1.3rem;
+  }
+
+  .dch-body {
+    padding: 1.8rem;
+  }
+
+  .dch-field {
+    margin-bottom: 1.1rem;
+  }
+
+  .dch-input {
+    width: 100%;
+    border-radius: 14px;
+    padding: 0.9rem 1rem;
+    background: rgba(255,255,255,.07);
+    border: 1px solid rgba(255,255,255,.14);
+    color: #fff;
+  }
+
+  .dch-input::placeholder {
+    color: rgba(255,255,255,.5);
+  }
+
+  .dch-input:focus {
+    outline: none;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99,102,241,.25);
+  }
+
+  .dch-btn {
+    width: 100%;
+    border: none;
+    border-radius: 14px;
+    padding: 0.95rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, #a5b4fc, #34d399);
+    color: #081022;
+    transition: transform .15s ease;
+  }
+
+  .dch-btn:hover {
+    transform: translateY(-1px);
+  }
+
+  .dch-error {
+    margin-bottom: 1rem;
+    padding: 0.75rem;
+    border-radius: 12px;
+    background: rgba(239,68,68,.15);
+    color: #fee2e2;
+    font-size: 0.9rem;
+  }
+</style>
+
+<div class="dch-auth">
+  <div class="dch-card">
+    <div class="dch-header">
+      <div class="dch-logo">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+          <path d="M12 21s-7-4.6-9.3-8.9C.8 8.8 2.3 6 5.3 6c1.7 0 3 .9 3.7 2 0 0 .9-2 3-2s3.7 1.6 3.7 3.9C18.7 16.4 12 21 12 21Z"
+                fill="white"/>
+        </svg>
+      </div>
+      <h1 class="dch-title">Digital Care Home</h1>
     </div>
+
+    <div class="dch-body">
+      {% if messages %}
+        {% for message in messages %}
+          <div class="dch-error">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+
+      <form method="POST">
+        {% csrf_token %}
+
+        <div class="dch-field">
+          <input type="text" class="dch-input"
+                 name="username" placeholder="Username" required>
+        </div>
+
+        <div class="dch-field">
+          <input type="password" class="dch-input"
+                 name="password" placeholder="Password" required>
+        </div>
+
+        <button type="submit" class="dch-btn">Login</button>
+      </form>
+    </div>
+  </div>
 </div>
 {% endblock %}
