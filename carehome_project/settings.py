@@ -61,8 +61,6 @@ MIDDLEWARE = [
 CORS_ALLOW_ALL_ORIGINS = True  # For testing — restrict later for security
 # OR:
 # CORS_ALLOWED_ORIGINS = [
-#     "https://www.prestigesupportedliving.com",
-#     "https://prestigesupportedliving.com"
 # ]
 
 ROOT_URLCONF = "carehome_project.urls"
