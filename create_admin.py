@@ -1,27 +1,32 @@
-from django.core.management.base import BaseCommand
-from django.contrib.auth import get_user_model
+import os
+import django
 
-User = get_user_model()
+# 1️⃣ Set Django settings module
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'carehome_project.settings')
 
-class Command(BaseCommand):
-    help = "Create a superuser with manager role"
+# 2️⃣ Initialize Django
+django.setup()
 
-    def handle(self, *args, **options):
-        email = "admin@example.com"
-        password = "Admin123!"
+# 3️⃣ Import your CustomUser model
+from core.models import CustomUser
 
-        if User.objects.filter(email=email).exists():
-            self.stdout.write(self.style.WARNING("Superuser already exists"))
-            return
+# 4️⃣ Superuser credentials — change as needed
+ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@example.com")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "Admin123!")
+ADMIN_FIRST_NAME = os.environ.get("ADMIN_FIRST_NAME", "Admin")
+ADMIN_LAST_NAME = os.environ.get("ADMIN_LAST_NAME", "User")
+ADMIN_ROLE = CustomUser.Manager  # Only managers can access admin panel
 
-        user = User.objects.create_superuser(
-            email=email,
-            password=password,
-            first_name="Admin",
-            last_name="User",
-            role=User.Manager,   # IMPORTANT
-        )
-
-        self.stdout.write(self.style.SUCCESS(
-            f"Superuser created successfully: {email}"
-        ))
+# 5️⃣ Create superuser if it doesn’t exist
+try:
+    user = CustomUser.objects.get(email=ADMIN_EMAIL)
+    print(f"⚠️ Superuser '{ADMIN_EMAIL}' already exists. Skipping creation.")
+except CustomUser.DoesNotExist:
+    user = CustomUser.objects.create_superuser(
+        email=ADMIN_EMAIL,
+        password=ADMIN_PASSWORD,
+        first_name=ADMIN_FIRST_NAME,
+        last_name=ADMIN_LAST_NAME,
+        role=ADMIN_ROLE
+    )
+    print(f"✅ Superuser '{ADMIN_EMAIL}' created successfully with role '{ADMIN_ROLE}'.")
