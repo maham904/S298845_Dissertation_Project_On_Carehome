@@ -349,34 +349,31 @@ User = get_user_model()
 
 def login_view(request):
     print("Login view accessed")
+
     if request.method == 'POST':
-        print("POST data:", request.POST)
-        email = request.POST.get('username')  # Now we only use email
+        email = request.POST.get('username')
         password = request.POST.get('password')
+
         print(f"Attempting auth for {email}")
 
-        user = authenticate(request, email=email, password=password)
+        user = authenticate(request, username=email, password=password)
         print("User object:", user)
 
         if user is not None:
             login(request, user)
-            print("Login successful, redirecting...")
 
-            # Update last active time
+            # Update last active safely
             user.last_active = timezone.now()
-            user.save()
+            user.save(update_fields=["last_active"])
 
-            if user.is_superuser:
-                return redirect('admin-dashboard')
-            elif user.role == CustomUser.STAFF:
+            if user.is_superuser or user.role == CustomUser.Manager:
                 return redirect('admin-dashboard')
             else:
                 return redirect('staff-dashboard')
-        else:
-            print("Authentication failed")
-            return render(request, 'core/login.html', {
-                'error': 'Invalid email or password'
-            })
+
+        return render(request, 'core/login.html', {
+            'error': 'Invalid email or password'
+        })
 
     return render(request, 'core/login.html')
 
