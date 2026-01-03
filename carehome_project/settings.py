@@ -23,7 +23,9 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # CUSTOM USER
 AUTH_USER_MODEL = 'core.CustomUser'
-
+AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.ModelBackend',
+]
 # LOGIN
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'dashboard'
