@@ -1,0 +1,35 @@
+# version: '3.9'
+
+services:
+  django:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DEBUG=True
+    depends_on:
+      - db
+    volumes:
+      - .:/app
+
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: carehome
+      POSTGRES_USER: carehome
+      POSTGRES_PASSWORD: carehome
+    ports:
+      - "5432:5432"
+
+  prometheus:
+      image: prom/prometheus:latest
+      container_name: prometheus
+      volumes:
+        - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      ports:
+        - "9090:9090"
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
