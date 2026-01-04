@@ -1,39 +1,43 @@
-# Base image
+# Use official Python slim image (ARM compatible)
 FROM python:3.13-slim
 
 # Set environment variables
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 
-# Set work directory
+# Set working directory
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
+# Install system dependencies for Django + WeasyPrint + PostgreSQL
+RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
-    libpq-dev \
-    libcairo2 \
-    libpango-1.0-0 \
-    libpangocairo-1.0-0 \
-    libgdk-pixbuf-2.0-0 \
+    pkg-config \
+    libcairo2-dev \
+    libpango1.0-dev \
+    libgdk-pixbuf-xlib-2.0-dev \
     libffi-dev \
     shared-mime-info \
+    libjpeg-dev \
+    libpq-dev \
+    git \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
-
-# Install Python dependencies
-COPY requirements.txt /app/
+# Upgrade pip
 RUN pip install --upgrade pip
+
+# Copy requirements and install Python dependencies
+COPY requirements.txt /app/
 RUN pip install -r requirements.txt
 
-# Copy project
+# Copy project files
 COPY . /app/
 
 # Collect static files
 RUN python manage.py collectstatic --noinput
 
-# Expose the port
+# Expose port for Django
 EXPOSE 8000
 
-# Start the application with Gunicorn
-CMD ["gunicorn", "carehome_project.wsgi:application", "--bind", "0.0.0.0:8000"]
+# Start Django with Gunicorn
+CMD ["gunicorn", "carehome_project.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3"]
