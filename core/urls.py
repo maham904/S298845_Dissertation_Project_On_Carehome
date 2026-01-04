@@ -59,5 +59,10 @@ urlpatterns = ([
                    path('staff-mapping/', staff_mapping_view, name='staff-mapping'),
                    path('delete-mapping/<int:pk>/', delete_mapping, name='delete-mapping'),
 
+# 🔥 API for mobile
+    path('api/login/', api_login, name='api-login'),
+path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+
                ]
                + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT))

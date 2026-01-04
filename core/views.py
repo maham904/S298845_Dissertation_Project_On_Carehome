@@ -377,6 +377,33 @@ def login_view(request):
 
     return render(request, 'core/login.html')
 
+@api_view(["POST"])
+def api_login(request):
+    email = request.data.get("email")
+    password = request.data.get("password")
+
+    if not email or not password:
+        return Response(
+            {"error": "Email and password required"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    user = authenticate(username=email, password=password)
+
+    if user is None:
+        return Response(
+            {"error": "Invalid credentials"},
+            status=status.HTTP_401_UNAUTHORIZED
+        )
+
+    return Response({
+        "success": True,
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "username": user.username
+        }
+    })
 
 @login_required
 def dashboard(request):
