@@ -19,3 +19,12 @@ DerivedData/
 Packages/
 Pods/
 build/
+
+# ---------- Android ----------
+.gradle/
+local.properties
+**/build/
+**/.idea/
+*.iml
+*.apk
+*.aab
