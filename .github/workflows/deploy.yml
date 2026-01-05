@@ -15,7 +15,12 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.11"  # or your version
+          python-version: "3.11"
+
+      - name: Install system dependencies (for pycairo)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libcairo2-dev
 
       - name: Install dependencies
         run: |
@@ -32,6 +37,6 @@ jobs:
           RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
         run: |
           curl -X POST \
-          -H "Accept: application/json" \
-          -H "Authorization: Bearer $RENDER_API_KEY" \
-          https://api.render.com/deploy/$RENDER_SERVICE_ID
+            -H "Accept: application/json" \
+            -H "Authorization: Bearer $RENDER_API_KEY" \
+            "https://api.render.com/v1/services/$RENDER_SERVICE_ID/deploys"
