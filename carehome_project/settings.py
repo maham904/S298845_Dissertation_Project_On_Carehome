@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 import dj_database_url
-
+from datetime import timedelta
 # Build paths
 BASE_DIR = Path(__file__).resolve().parent.parent
 
