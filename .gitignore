@@ -1,0 +1,20 @@
+# ---------- Python / Django ----------
+__pycache__/
+*.pyc
+.env
+.env.*
+db.sqlite3
+media/
+staticfiles/
+
+# ---------- iOS / Xcode ----------
+.DS_Store
+xcuserdata/
+DerivedData/
+*.xcuserstate
+*.xccheckout
+*.xcscmblueprint
+.build/
+Packages/
+Pods/
+build/
