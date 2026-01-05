@@ -18,6 +18,7 @@ from django.http import HttpResponseForbidden
 from django.views.decorators.csrf import csrf_exempt
 import requests
 from django.views.decorators.http import require_POST, require_GET
+from django.views.generic import DetailView, FormView
 from weasyprint import HTML
 from weasyprint.text.fonts import FontConfiguration
 from rest_framework.decorators import api_view
