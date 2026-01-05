@@ -345,3 +345,57 @@ class ABCFormForm(forms.ModelForm):
             self.save_m2m()
 
         return instance
+
+
+from django.contrib.auth import get_user_model
+User = get_user_model()
+class ContactEmailPasswordResetForm(forms.Form):
+    email = forms.EmailField(label="Work Email")
+    contact_email = forms.EmailField(label="Personal Email")
+
+    def clean(self):
+        cleaned_data = super().clean()
+        email = cleaned_data.get("email")
+        contact_email = cleaned_data.get("contact_email")
+
+        try:
+            self.user = User.objects.get(email=email, contact_email=contact_email)
+        except User.DoesNotExist:
+            raise forms.ValidationError(
+                "No user found with that work/personal email pair."
+            )
+
+        return cleaned_data
+
+    def send_reset_email(self, request, subject_template_name, email_template_name):
+        user = self.user
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        token = default_token_generator.make_token(user)
+
+        reset_link = request.build_absolute_uri(
+            reverse("password_reset_confirm", kwargs={"uidb64": uid, "token": token})
+        )
+
+        # Subject
+        subject = render_to_string(subject_template_name).strip()
+
+        # Plain-text version
+        text_content = render_to_string("core/password_reset_email.txt", {
+            "user": user,
+            "reset_link": reset_link,
+        })
+
+        # HTML version
+        html_content = render_to_string("core/password_reset_email.html", {
+            "user": user,
+            "reset_link": reset_link,
+        })
+
+        email = EmailMultiAlternatives(
+            subject,
+            text_content,
+            settings.DEFAULT_FROM_EMAIL,
+            [user.contact_email],  # ✅ personal email
+        )
+        email.attach_alternative(html_content, "text/html")
+        email.send()
