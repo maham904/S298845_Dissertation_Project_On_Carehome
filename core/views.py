@@ -1415,4 +1415,336 @@ def get_accessible_carehomes(user):
         return CareHome.objects.all()
     elif user.role == 'team_lead':
         return user.managed_carehomes.all()
-    return CareHome.objects.none()
+    return CareHome.objects.none()\
+
+
+def serve_media(request, path):
+    from urllib.parse import unquote
+    path = unquote(path)
+    file_path = os.path.join(settings.MEDIA_ROOT, path)
+    logger.info(f"Trying to serve media file: {file_path}")
+    if os.path.exists(file_path):
+        return FileResponse(open(file_path, 'rb'))
+    logger.error(f"File not found: {file_path}")
+    raise Http404("File not found")
+
+def get_service_users(request):
+    carehome_id = request.GET.get('carehome_id')
+    service_users = ServiceUser.objects.filter(carehome_id=carehome_id)
+    data = [{"id": su.id, "name": f"{su.first_name} {su.last_name}"} for su in service_users]
+    return JsonResponse(data, safe=False)
+
+def id_card_preview(request, user_id):
+    staff = get_object_or_404(CustomUser, pk=user_id)
+
+    # Calculate expiry = date_of_joining + 1 year
+    if staff.date_of_joining:
+        expiry_date = staff.date_of_joining + relativedelta(years=1)
+        expiry_str = expiry_date.strftime("%m/%Y")
+    else:
+        expiry_str = "12/2025"  # fallback if no joining date
+
+    qr_code_value = f"PCMS{staff.first_name}{staff.last_name}{expiry_str}"
+
+    context = {
+        "first_name": staff.first_name,
+        "last_name": staff.last_name,
+        "role": staff.get_role_display(),
+        "photo": staff.image.url if staff.image else "/static/img/default-profile.png",
+        "id": staff.id,
+        "qr_code_value": qr_code_value,
+    }
+
+    return render(request, "staff/new_id_card_preview.html", context)
+
+class ProfileView(LoginRequiredMixin, DetailView):
+    model = CustomUser
+    template_name = "profile/profile.html"
+    context_object_name = "user_profile"
+
+    def get_object(self, queryset=None):
+        return self.request.user
+
+class ContactEmailPasswordResetView(FormView):
+    template_name = "core/password_reset_form.html"
+    success_url = reverse_lazy("password_reset_done")
+    form_class = ContactEmailPasswordResetForm
+
+    def form_valid(self, form):
+        form.send_reset_email(
+            self.request,
+            subject_template_name="core/password_reset_subject.txt",
+            email_template_name="core/password_reset_email.html"
+        )
+        messages.success(self.request, "If your details match, a reset link has been sent to your personal email.")
+        return super().form_valid(form)
+
+def is_manager_or_teamlead(user):
+    return user.is_authenticated and user.role in ["manager", "team_lead"]
+
+@login_required
+@user_passes_test(is_manager_or_teamlead)
+def carehome_shift_matrix(request):
+    # Example context
+    return render(request, 'core/carehome_shift_matrix.html', {})
+
+def approve_rota(request, rota_id):
+    rota = Rota.objects.get(id=rota_id)
+    rota.status = "Published"
+    rota.save()
+
+    # notify all staff assigned
+    for staff in rota.assigned_staff.all():
+        send_notification(
+            user=staff,
+            title="Rota Published",
+            message="A new rota has been published. Please review your schedule."
+        )
+
+def reject_rota(request, rota_id):
+    rota = Rota.objects.get(id=rota_id)
+    rota.status = "Returned"
+    rota.save()
+
+    send_notification(
+        user=rota.created_by,
+        title="Rota Rejected",
+        message="Manager rejected your rota. Please make the required changes."
+    )
+
+
+def api_rota_submit(request, rota_id):
+    rota = Rota.objects.get(pk=rota_id)
+    rota.submit_for_approval(request.user)
+    # notify managers:
+    for m in rota.carehome.managers.all():
+        send_notification(m, "Rota Submitted", f"{request.user.get_full_name()} submitted rota for {rota.carehome.name}", notif_type='rota_submit', payload={'rota_id': rota.id})
+    return JsonResponse({"ok": True})
+
+@csrf_exempt
+@login_required
+def api_rota_reject(request):
+    try:
+        data = json.loads(request.body.decode())
+    except:
+        return api_error("Invalid JSON")
+
+    rota_id = data.get("rota_id")
+    comment = data.get("comment", "")
+
+    if not rota_id:
+        return api_error("rota_id required")
+
+    try:
+        rota = Rota.objects.get(id=rota_id)
+    except Rota.DoesNotExist:
+        return api_error("Rota not found")
+
+    rota.status = "Rejected"
+    rota.manager_message = comment
+    rota.save()
+
+    return api_ok({"status": rota.status})
+
+@csrf_exempt
+@login_required
+def api_rota_publish(request):
+
+    try:
+        data = json.loads(request.body.decode())
+    except:
+        return api_error("Invalid JSON")
+
+    rota_id = data.get("rota_id")
+    if not rota_id:
+        return api_error("rota_id required")
+
+    try:
+        rota = Rota.objects.get(id=rota_id)
+    except Rota.DoesNotExist:
+        return api_error("Rota not found")
+
+    rota.status = "Published"
+    rota.approved_by = request.user
+    rota.save()
+
+    return api_ok({"status": rota.status})
+
+@csrf_exempt
+@login_required
+def api_rota_submit(request):
+    from .models import Rota
+    import json
+
+    try:
+        data = json.loads(request.body.decode())
+    except:
+        return api_error("Invalid JSON")
+
+    rota_id = data.get("rota_id")
+    if not rota_id:
+        return api_error("rota_id required")
+
+    try:
+        rota = Rota.objects.get(id=rota_id)
+    except Rota.DoesNotExist:
+        return api_error("Rota not found")
+
+    rota.status = "Submitted"
+    rota.save()
+
+    return api_ok({"status": rota.status})
+
+@csrf_exempt
+@login_required
+def api_rota_save_draft(request):
+    from .models import Rota
+    import json
+
+    try:
+        data = json.loads(request.body.decode())
+    except:
+        return api_error("Invalid JSON")
+
+    carehome_id = data.get("carehome_id")
+    week_start = data.get("week_start")
+
+    if not carehome_id or not week_start:
+        return api_error("carehome_id and week_start required")
+
+    rota, created = Rota.objects.get_or_create(
+        carehome_id=carehome_id,
+        week_start=week_start,
+        defaults={"created_by": request.user}
+    )
+
+    rota.status = "Draft"
+    rota.save()
+
+    return api_ok({"rota_id": rota.id, "status": rota.status})
+
+@csrf_exempt
+@login_required
+def api_shifts_list(request):
+
+    if request.method not in ["POST", "PUT"]:
+        return api_error("Method not allowed", status=405)
+
+    try:
+        data = json.loads(request.body.decode())
+    except:
+        return api_error("Invalid JSON format")
+
+    # Validate required fields
+    required = ["rota_id", "date", "shift_type"]
+    if not all(k in data for k in required):
+        return api_error("Missing required fields")
+
+    rota_id = data.get("rota_id")
+
+    try:
+        rota = Rota.objects.get(id=rota_id)
+    except Rota.DoesNotExist:
+        return api_error("Rota not found")
+
+    # If PUT → update existing shift
+    shift_id = data.get("id")
+    if request.method == "PUT" and shift_id:
+        try:
+            shift = Shift.objects.get(id=shift_id)
+        except Shift.DoesNotExist:
+            return api_error("Shift not found")
+    else:
+        shift = Shift(rota=rota)
+
+    # Assign fields
+    shift.date = data.get("date")
+    shift.shift_type = data.get("shift_type")
+    shift.staff_id = data.get("staff_id")
+    shift.service_user_id = data.get("service_user_id")
+    shift.notes = data.get("notes", "")
+
+    shift.save()
+
+    return api_ok({"shift_id": shift.id})
+
+@login_required
+def api_rota_events(request):
+    carehome_id = request.GET.get("carehome")
+
+    if not carehome_id:
+        return api_error("carehome parameter is required")
+
+    rotas = Rota.objects.filter(carehome_id=carehome_id).order_by("-week_start")
+
+    results = []
+
+    for rota in rotas:
+        shifts = Shift.objects.filter(rota=rota).values(
+            "id", "date", "shift_type", "staff_id", "service_user_id", "notes"
+        )
+
+        results.append({
+            "rota_id": rota.id,
+            "week_start": rota.week_start,
+            "status": rota.status,
+            "shifts": list(shifts)
+        })
+
+    return api_ok(results)
+
+@login_required
+def api_staff_list(request):
+    carehome_id = request.GET.get('carehome')
+    try:
+        staff_qs = CustomUser.objects.filter(carehome_id=carehome_id, role='staff')
+        data = list(staff_qs.values(
+            "id",
+            "first_name",
+            "last_name",
+            "image",      # ← use 'image' instead of 'profile_picture'
+            "role",       # optional, can use for meta
+        ))
+        # add computed fields for frontend if needed
+        for s in data:
+            s['name'] = f"{s['first_name']} {s['last_name']}"
+            s['avatar'] = s['image']  # frontend expects 'avatar'
+            s['role_display'] = s['role'].capitalize()  # optional
+        return api_ok(data)
+    except Exception as e:
+        import traceback
+        print(traceback.format_exc())
+        return api_error(str(e))
+
+@login_required
+def api_serviceusers_list(request):
+    carehome_id = request.GET.get('carehome')
+    try:
+        su_qs = ServiceUser.objects.filter(carehome_id=carehome_id)
+        data = list(su_qs.values(
+            "id",
+            "first_name",
+            "last_name",
+            "image",
+        ))
+        for su in data:
+            su['name'] = f"{su['first_name']} {su['last_name']}"
+            su['avatar'] = su['image']
+            su['initials'] = f"{su['first_name'][0]}{su['last_name'][0]}" if su['first_name'] and su['last_name'] else ''
+        return api_ok(data)
+    except Exception as e:
+        import traceback
+        print(traceback.format_exc())
+        return api_error(str(e))
+
+@login_required
+def api_carehomes_list(request):
+    from .models import CareHome
+
+    carehomes = CareHome.objects.all().values(
+        "id", "name", "postcode"
+    )
+
+    return api_ok(list(carehomes))
+
+

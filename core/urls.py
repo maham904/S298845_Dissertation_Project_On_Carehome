@@ -62,6 +62,16 @@ urlpatterns = ([
                         name='get-service-users-by-carehome'),
                    path('staff-mapping/', staff_mapping_view, name='staff-mapping'),
                    path('delete-mapping/<int:pk>/', delete_mapping, name='delete-mapping'),
+path('carehome-shift-matrix/', views.carehome_shift_matrix, name='carehome-shift-matrix'),
+                   path("api/carehomes/", views.api_carehomes_list, name="api-carehomes-list"),
+                   path("api/rota-events/", views.api_rota_events, name="api-rota-events"),
+                   path("api/staff/", views.api_staff_list, name="api-staff-list"),
+                   path("api/service-users/", views.api_serviceusers_list, name="api-serviceusers-list"),
+                   path("api/shifts/", views.api_shifts_list, name="api-shifts-list"),
+                   path("api/rota/save-draft/", views.api_rota_save_draft, name="api-rota-save-draft"),
+                   path("api/rota/submit/", views.api_rota_submit, name="api-rota-submit"),
+                   path("api/rota/publish/", views.api_rota_publish, name="api-rota-publish"),
+                   path("api/rota/reject/", views.api_rota_reject, name="api-rota-reject"),
 
 # 🔥 API for mobile
     path('api/login/', api_login, name='api-login'),
