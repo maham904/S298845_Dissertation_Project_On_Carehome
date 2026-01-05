@@ -18,7 +18,9 @@ import requests
 from django.views.decorators.http import require_POST, require_GET
 from weasyprint import HTML
 from weasyprint.text.fonts import FontConfiguration
-
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from rest_framework import status
 from carehome_project import settings
 from core.utils import get_or_create_latest_log, get_filtered_queryset, generate_shift_times
 from .models import CustomUser, LatestLogEntry, Mapping, MissedLog
