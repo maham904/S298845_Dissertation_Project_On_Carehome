@@ -1,7 +1,11 @@
 # core/urls.py
 from django.conf.urls.static import static
 from django.urls import path
-
+from django.urls import path
+from rest_framework_simplejwt.views import (
+    TokenObtainPairView,
+    TokenRefreshView,
+)
 from carehome_project import settings
 from . import views
 from .views import create_log_view, log_entry_form, save_log_entry, lock_log_entries, staff_latest_logs_view, \
