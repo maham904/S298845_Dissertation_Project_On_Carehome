@@ -28,7 +28,7 @@ from carehome_project import settings
 from django.urls import reverse_lazy
 from core.utils import get_or_create_latest_log, get_filtered_queryset, generate_shift_times
 from .models import CustomUser, LatestLogEntry, Mapping, MissedLog
-from .forms import ServiceUserForm, StaffCreationForm, CareHomeForm, MappingForm
+from .forms import ServiceUserForm, StaffCreationForm, CareHomeForm, MappingForm, ContactEmailPasswordResetForm
 from io import BytesIO
 from django.template.loader import render_to_string
 from django.http import HttpResponse
