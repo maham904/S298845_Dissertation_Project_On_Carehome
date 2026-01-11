@@ -6,7 +6,7 @@ from django.core.exceptions import FieldError
 from django.utils import timezone
 
 from .models import CustomUser, CareHome, ServiceUser, LogEntry, Mapping, IncidentReport, ABCForm, LatestLogEntry, \
-    MissedLog,Rota, Shift, RotaApproval, ShiftChangeLog, Notification
+    MissedLog ,Rota, Shift, RotaApproval, ShiftChangeLog, Notification
 
 
 @admin.register(CustomUser)
@@ -20,12 +20,12 @@ class CustomUserAdmin(UserAdmin):
     # Fields for editing user
     fieldsets = (
         (None, {'fields': ('email', 'password')}),
-        ('Personal info', {'fields': ('first_name', 'last_name', 'phone', 'address', 'image', 'additional_info')}),
+        ('Personal info', {'fields': ('first_name', 'last_name', 'date_of_joining','phone', 'address', 'image', 'additional_info')}),
         ('Role info', {'fields': ('role', 'carehome')}),
         ('Permissions', {
             'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions'),
         }),
-        ('Important dates', {'fields': ('last_login', 'date_joined', 'last_active')}),
+        ('Important dates', {'fields': ('last_login', 'last_active')}),
     )
 
     # Fields for adding new user
@@ -59,9 +59,9 @@ class CareHomeAdmin(admin.ModelAdmin):
 
 @admin.register(ServiceUser)
 class ServiceUserAdmin(admin.ModelAdmin):
-    list_display = ('first_name', 'last_name', 'carehome', 'phone')
+    list_display = ('first_name', 'last_name', 'carehome', 'phone', 'dob')
     list_filter = ('carehome',)
-    search_fields = ('first_name', 'last_name', 'phone')
+    search_fields = ('first_name', 'last_name', 'phone', 'next_of_kin_first_name', 'next_of_kin_last_name')
 
 
 @admin.register(LogEntry)

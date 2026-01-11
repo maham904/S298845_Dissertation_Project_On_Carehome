@@ -1,6 +1,8 @@
 import os
 
 from django.core.exceptions import ValidationError
+from django.db.models.signals import pre_save, post_delete
+from django.dispatch import receiver
 from django.template.loader import render_to_string
 from django.utils import timezone
 from datetime import timedelta
@@ -13,6 +15,7 @@ from django.core.validators import RegexValidator
 from django.contrib.auth.base_user import BaseUserManager
 
 from django.db import models
+from django.utils.timezone import now
 from weasyprint import HTML
 
 from carehome_project import settings
@@ -151,12 +154,12 @@ class CareHome(models.Model):
     def __str__(self):
         return self.name
 
-
 class ServiceUser(models.Model):
-    carehome = models.ForeignKey(CareHome, on_delete=models.CASCADE,related_name='service_users')
+    carehome = models.ForeignKey('CareHome', on_delete=models.CASCADE, related_name='service_users')
     image = models.ImageField(upload_to='service_users/', blank=True, null=True)
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
+    dob = models.DateField(null=True, blank=True)  # new DOB field
     phone = models.CharField(
         max_length=20,
         validators=[
@@ -170,11 +173,21 @@ class ServiceUser(models.Model):
     emergency_contact = models.CharField(max_length=20)
     address = models.TextField()
     notes = models.TextField(blank=True, null=True)
+
+    # Next of kin details
+    next_of_kin_first_name = models.CharField(max_length=100, blank=True, null=True)
+    next_of_kin_last_name = models.CharField(max_length=100, blank=True, null=True)
+    next_of_kin_phone = models.CharField(max_length=20, blank=True, null=True)
+    next_of_kin_email = models.EmailField(blank=True, null=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     def get_formatted_name(self):
         initials = f"{self.first_name[0]}{self.last_name[0]}".upper()
         return f"{self.first_name} {self.last_name} ({initials})"
+
+    def get_initials(self):
+        return (self.first_name[0] if self.first_name else '') + (self.last_name[0] if self.last_name else '')
 
     def __str__(self):
         return f"{self.first_name} {self.last_name}"
@@ -323,6 +336,10 @@ class CustomUserManager(BaseUserManager):
         return self.create_user(email, password, **extra_fields)
 
 
+class CustomUser:
+    pass
+
+
 class CustomUser(AbstractBaseUser, PermissionsMixin):
     # Staff-related fields
     STAFF = 'staff'
@@ -339,18 +356,25 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     phone = models.CharField(max_length=20, blank=True, null=True)
     address = models.TextField(blank=True, null=True)
     additional_info = models.TextField(blank=True, null=True)
+    postcode = models.CharField(max_length=10, blank=True, null=True)
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default=STAFF)
     carehome = models.ForeignKey('CareHome', on_delete=models.SET_NULL, null=True, blank=True)
     last_active = models.DateTimeField(null=True, blank=True)
-
+    date_of_joining = models.DateField(null=True, blank=True)
     # Authentication fields
     email = models.EmailField(unique=True)
+    contact_email = models.EmailField(blank=True, null=True, unique=True)
     first_name = models.CharField(max_length=30, blank=True)
     last_name = models.CharField(max_length=150, blank=True)
 
+    # Add new fields for Next of Kin and Postcode
+    next_of_kin_first_name = models.CharField(max_length=30, blank=True, null=True)
+    next_of_kin_last_name = models.CharField(max_length=30, blank=True, null=True)
+    next_of_kin_phone = models.CharField(max_length=20, blank=True, null=True)
+    next_of_kin_email = models.EmailField(blank=True, null=True)
+
     is_staff = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
-    date_joined = models.DateTimeField(default=timezone.now)
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['first_name', 'last_name']
@@ -381,6 +405,25 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
         elif self.role == 'manager':
             return CareHome.objects.all()
         return CareHome.objects.none()
+
+    @receiver(pre_save, sender=CustomUser)
+    def delete_old_image(sender, instance, **kwargs):
+        if instance.pk:
+            try:
+                old_instance = CustomUser.objects.get(pk=instance.pk)
+                if old_instance.image and old_instance.image != instance.image:
+                    # Delete the old file if it exists
+                    if os.path.isfile(old_instance.image.path):
+                        os.remove(old_instance.image.path)
+            except CustomUser.DoesNotExist:
+                pass
+
+    # Signal to delete image file when user is deleted
+    @receiver(post_delete, sender=CustomUser)
+    def delete_user_image(sender, instance, **kwargs):
+        if instance.image:
+            if os.path.isfile(instance.image.path):
+                os.remove(instance.image.path)
 
     class Meta:
         verbose_name = 'User'
@@ -433,7 +476,7 @@ class LogEntry(models.Model):
         return f"{self.date} - {self.service_user} - {self.time_slot}"
 
     class Meta:
-        ordering = ['date', 'time_slot']
+        # ordering = ['date', 'time_slot']
         verbose_name_plural = "Log Entries"
 
 
@@ -617,7 +660,7 @@ class MissedLog(models.Model):
 
     carehome = models.ForeignKey(CareHome, on_delete=models.CASCADE)
     service_user = models.ForeignKey(ServiceUser, on_delete=models.CASCADE)
-    date = models.DateField()
+    date = models.DateField(default=now)
     shift = models.CharField(max_length=20, choices=SHIFT_CHOICES)
     is_notified = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -871,3 +914,5 @@ class RotaApproval(models.Model):
 
     def __str__(self):
         return f"{self.rota} - {self.action} by {self.by_user}"
+
+
