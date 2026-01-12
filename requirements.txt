@@ -49,4 +49,4 @@ zopfli==0.2.3.post1
 gunicorn
 djangorestframework
 djangorestframework-simplejwt==5.3.1
-
+psycopg2-binary==2.9.10
