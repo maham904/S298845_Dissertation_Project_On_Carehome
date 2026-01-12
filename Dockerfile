@@ -1,43 +1,25 @@
-# Use official Python slim image (ARM compatible)
-FROM python:3.13-slim
+#!/usr/bin/env bash
+set -o errexit
 
-# Set environment variables
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
+pip install --upgrade pip
+pip install --use-deprecated=legacy-resolver -r requirements.txt
 
-# Set working directory
-WORKDIR /app
+python manage.py collectstatic --noinput
+python manage.py migrate
 
-# Install system dependencies for Django + WeasyPrint + PostgreSQL
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    pkg-config \
-    libcairo2-dev \
-    libpango1.0-dev \
-    libgdk-pixbuf-xlib-2.0-dev \
-    libffi-dev \
-    shared-mime-info \
-    libjpeg-dev \
-    libpq-dev \
-    git \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+# Create superuser once (only if it doesn't exist)
+python manage.py shell -c "
+from django.contrib.auth import get_user_model
+import os
+User = get_user_model()
+email = os.environ.get('DJANGO_SUPERUSER_EMAIL')
+pwd = os.environ.get('DJANGO_SUPERUSER_PASSWORD')
+fn = os.environ.get('DJANGO_SUPERUSER_FIRST_NAME', 'Admin')
+ln = os.environ.get('DJANGO_SUPERUSER_LAST_NAME', 'User')
 
-# Upgrade pip
-RUN pip install --upgrade pip
-
-# Copy requirements and install Python dependencies
-COPY requirements.txt /app/
-RUN pip install -r requirements.txt
-
-# Copy project files
-COPY . /app/
-
-# Collect static files
-RUN python manage.py collectstatic --noinput
-
-# Expose port for Django
-EXPOSE 8000
-
-# Start Django with Gunicorn
-CMD ["gunicorn", "carehome_project.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3"]
+if email and pwd and not User.objects.filter(email=email).exists():
+    User.objects.create_superuser(email=email, password=pwd, first_name=fn, last_name=ln)
+    print('✅ Superuser created:', email)
+else:
+    print('ℹ️ Superuser exists already, or env vars missing.')
+"
